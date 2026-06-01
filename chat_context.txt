@@ -1,0 +1,2758 @@
+# Workspace Structure
+```text
+swerve_robot/
+├── swerve_bringup/
+│   ├── config/
+│   │   └── bridge.yaml
+│   ├── include/
+│   │   └── swerve_bringup/
+│   ├── launch/
+│   │   └── sim_bringup.launch.py
+│   ├── src/
+│   ├── CMakeLists.txt
+│   └── package.xml
+├── swerve_control/
+│   ├── config/
+│   │   └── swerve_controllers.yaml
+│   ├── include/
+│   │   └── swerve_control/
+│   ├── src/
+│   │   └── swerve_kinematics.cpp
+│   ├── CMakeLists.txt
+│   └── package.xml
+├── swerve_description/
+│   ├── include/
+│   │   └── swerve_description/
+│   ├── src/
+│   ├── urdf/
+│   │   ├── swerve_module.xacro
+│   │   └── swerve_robot.urdf.xacro
+│   ├── CMakeLists.txt
+│   └── package.xml
+├── swerve_exploration/
+│   ├── include/
+│   │   └── swerve_exploration/
+│   ├── src/
+│   │   └── rrt_exploration.cpp
+│   ├── CMakeLists.txt
+│   └── package.xml
+├── swerve_gazebo/
+│   ├── include/
+│   │   └── swerve_gazebo/
+│   ├── src/
+│   ├── worlds/
+│   │   └── json_to_sdf.py
+│   ├── CMakeLists.txt
+│   └── package.xml
+├── swerve_gui/
+│   ├── resource/
+│   ├── swerve_gui/
+│   │   ├── __init__.py
+│   │   └── gui_node.py
+│   ├── test/
+│   │   ├── test_copyright.py
+│   │   ├── test_flake8.py
+│   │   └── test_pep257.py
+│   ├── package.xml
+│   └── setup.py
+├── swerve_navigation/
+│   ├── config/
+│   │   ├── ekf.yaml
+│   │   ├── nav2_params.yaml
+│   │   └── slam_toolbox.yaml
+│   ├── include/
+│   │   └── swerve_navigation/
+│   ├── launch/
+│   │   ├── navigation.launch.py
+│   │   └── slam.launch.py
+│   ├── map_RRT_generated/
+│   │   └── maze_map.yaml
+│   ├── maps/
+│   │   └── maze_map.yaml
+│   ├── maps2/
+│   │   └── maze_map.yaml
+│   ├── maps_3m/
+│   │   └── maze_map.yaml
+│   ├── maps_3m_bueno/
+│   │   └── maze_map.yaml
+│   ├── src/
+│   ├── CMakeLists.txt
+│   └── package.xml
+├── chat_context.txt
+├── commands.txt
+├── currentPrompt.txt
+└── export_context.py
+```
+
+# File Contents
+
+### File: chat_context.txt
+```
+
+```
+
+### File: commands.txt
+```
+Commands and Procedures for Swerve Robot Project
+
+================================================================================
+0. Hardware Rendering Setup (REQUIRED FOR ALL SIMULATIONS)
+
+Force your terminal to use the NVIDIA GPU before launching Gazebo or RViz to prevent crashes and UI artifacts. Run these in Terminal 1 before bringup:
+export __NV_PRIME_RENDER_OFFLOAD=1
+export __GLX_VENDOR_LIBRARY_NAME=nvidia
+
+================================================================================
+
+Autonomous Exploration (RRT Mapping)
+================================================================================
+Use this mode to drop the robot into an unknown maze and let it map it completely autonomously.
+
+Terminal 1 (Simulation & Hardware Rendering):
+export __NV_PRIME_RENDER_OFFLOAD=1
+export __GLX_VENDOR_LIBRARY_NAME=nvidia
+ros2 launch swerve_bringup sim_bringup.launch.py
+
+Terminal 2 (SLAM & Localization):
+ros2 launch swerve_navigation slam.launch.py
+
+Terminal 3 (Nav2 Planners and Controllers):
+ros2 launch nav2_bringup navigation_launch.py use_sim_time:=True params_file:=install/swerve_navigation/share/swerve_navigation/config/nav2_params.yaml
+
+Terminal 4 (Operator Dashboard):
+ros2 run swerve_gui gui
+
+Terminal 5 (RRT Exploration Node):
+ros2 run swerve_exploration rrt_node
+
+Procedure:
+
+Wait for Terminal 5 to print "Exploration physically complete".
+
+The RRT node will deactivate itself. (You can also safely press Ctrl+C in Terminal 5).
+
+If there is a tight corner it refused to enter, use the Virtual Joystick in the GUI to manually drive it into that corner to finish the map.
+
+Save the map.
+
+================================================================================
+2. Manual Mapping (Teleoperation)
+
+Use this mode if you want to map the environment entirely by yourself using the GUI joystick.
+
+Terminal 1 (Simulation & Hardware Rendering):
+export __NV_PRIME_RENDER_OFFLOAD=1
+export __GLX_VENDOR_LIBRARY_NAME=nvidia
+ros2 launch swerve_bringup sim_bringup.launch.py
+
+Terminal 2 (SLAM & Localization):
+ros2 launch swerve_navigation slam.launch.py
+
+Terminal 3 (Operator Dashboard):
+ros2 run swerve_gui gui
+
+Procedure:
+
+Drive the robot around using the GUI virtual joystick.
+
+Save the map using the GUI button or the CLI tools below.
+
+================================================================================
+3. Pure Navigation (Using a Pre-built Map)
+
+Use this mode to run missions and send waypoints via the GUI on a map you have already saved.
+
+Terminal 1 (Simulation & Hardware Rendering):
+export __NV_PRIME_RENDER_OFFLOAD=1
+export __GLX_VENDOR_LIBRARY_NAME=nvidia
+ros2 launch swerve_bringup sim_bringup.launch.py
+
+Terminal 2 (Navigation Stack with AMCL):
+ros2 launch swerve_navigation navigation.launch.py
+
+Terminal 3 (Operator Dashboard):
+ros2 run swerve_gui gui
+
+Procedure:
+
+In RViz, use the "2D Pose Estimate" tool to set the robot's initial location on the map.
+
+Once localized, use the GUI Dropdown to select a predefined waypoint, or click the "SEND HOME" button.
+
+You can also use the "2D Goal Pose" tool in RViz to send custom coordinates.
+
+================================================================================
+4. Utility Commands
+
+Save Map to Custom Directory (RRT Generated):
+mkdir -p ~/ros2_ws/src/swerve_robot/swerve_navigation/map_RRT_generated
+ros2 run nav2_map_server map_saver_cli -f ~/ros2_ws/src/swerve_robot/swerve_navigation/map_RRT_generated/maze_map
+
+Generate the World SDF from JSON:
+python3 json_to_sdf.py --hall_width 3.0 --wall_height 1.0 --wall_thickness 0.1
+
+Test and View SDF World in Gazebo (No Robot):
+ign gazebo maze.sdf
+
+Export Workspace Context (For Documentation/LLM):
+python3 export_context.py
+
+RViz Display Setup (If loading manually):
+Fixed Frame: map
+Add -> MAP (topic: /map)
+Add -> LaserScan (topic: /scan)
+Add -> RobotModel
+Add -> TF
+Add -> Marker (topic: /rrt_tree)
+```
+
+### File: currentPrompt.txt
+```
+Act as a senior robotics software engineer assisting a user with a master's degree in robotics. The goal is to build a high-level portfolio project from scratch. Do not just agree with me; if a technical approach is flawed, explain why and provide the correct industry-standard solution. Keep your responses straightforward and avoid sounding arrogant. Do not use the words "democratize", "rigorous", or "capable engineer".
+
+### Behavioral Rules
+* **File Formatting:** Whenever you generate, modify, or suggest code for a file, you MUST include the filename and its exact path at the top of the code block. (e.g., `yaml:swerve_navigation/config/nav2_params.yaml` or `cpp:swerve_exploration/src/rrt_node.cpp`).
+* **Do Not Flatter/Agree Blindly:** Do not agree with me every time. Only agree if I am strictly correct. If I am wrong or making a mistake with ROS 2 concepts, explain exactly why and provide the correct solution.
+* **Keep it Concise:** Provide direct, highly technical answers.
+
+### Project Definition
+We are building a simulated 4-wheel (8-motor) swerve drive mobile robot (`swerve_agrobot`) that autonomously maps and navigates a custom environment.
+* **OS:** Ubuntu 22.04 LTS
+* **ROS Version:** ROS 2 Humble
+* **Simulator:** Gazebo Fortress
+* **Robot Dimensions:** Upgraded to a cylindrical chassis (radius: 0.42m, height: 0.2m) to prevent the Lidar from detecting swinging corners during rotation. It features a 1mm thin flat circular indicator on top to show the front without blocking the Lidar.
+* **Sensors:** 8x joint encoders, 1x IMU, 1x 2D Lidar (minimum range set to 0.45m).
+
+### The 20cm Navigation Constraint
+I need the robot to be able to navigate as close as exactly 20cm to the maze walls. (This is because, later in the project, a collaborative arm will be mounted on the base, and it must reach objects without over-extending and tipping the robot). To achieve this without trapping the robot in local minima, the `nav2_params.yaml` uses a `robot_radius` of 0.42 and an `inflation_radius` of 0.62 (0.42m + 0.20m clearance), combined with a high `cost_scaling_factor` of 5.0.
+
+### Execution Steps Status
+* **Step 1:** Write the Python script to convert the JSON wall coordinates into a Gazebo Fortress SDF world. (DONE)
+* **Step 2:** Build the URDF/Xacro for the swerve robot with all sensor plugins. (DONE - Chassis converted to 0.42m cylinder).
+* **Step 3:** Implement the ros2_control hardware interface and swerve kinematics. (DONE - Implemented IK/FK, shortest path with hysteresis, and cosine scaling anti-arcing).
+* **Step 4:** Set up the ros_gz bridges. (DONE)
+* **Step 5:** Build the PyQt6 GUI node for the virtual joystick and waypoint status tracking. (DONE)
+* **Step 6:** Configure Nav2 and SLAM for tight-space holonomic navigation. (IN PROGRESS - Testing anti-drift and 20cm tight navigation limits).
+* **Step 7:** Write the custom RRT exploration node from scratch. (PENDING)
+
+### Critical System Discoveries & Context
+Through previous debugging, we solved several critical quirks about this specific software stack that you must factor into all future code:
+1. **Hardware Rendering:** I use a hybrid graphics laptop (AMD/NVIDIA RTX 3050). To prevent Gazebo crashes and RViz GLSL shader bugs (black squares), I MUST run the nodes using `export __NV_PRIME_RENDER_OFFLOAD=1` and `export __GLX_VENDOR_LIBRARY_NAME=nvidia`.
+2. **TF Tree & EKF:** To prevent TF chatter, the kinematics node DOES NOT broadcast the `odom -> base_footprint` transform. The Extended Kalman Filter (`ekf_node`) handles this using absolute topic paths (`/odom` and `/imu/data`). The `ekf_node` must run concurrently with Nav2, and the Gazebo simulation must be running simultaneously to prevent TF "extrapolation into the past" errors.
+3. **Dynamic Drift:** The swerve wheels slip on long navigation goals. We fixed this by lowering acceleration/deceleration limits (`acc_lim_x: 0.5`, etc.) in the `DWBLocalPlanner` and `velocity_smoother`, and increasing `BaseObstacle.scale` to actively repel from walls.
+4. **Nav2 Plugin Syntax Quirks:** ROS 2 Humble requires mixed syntax. Planners and Behaviors use the forward slash (e.g., `nav2_navfn_planner/NavfnPlanner`), while Costmaps and Controllers still require double colons (e.g., `nav2_costmap_2d::ObstacleLayer`).
+5. **BT Navigator:** We removed the `plugin_lib_names` list from the `bt_navigator` parameters so it automatically loads the correct default behavior tree nodes for Humble.
+
+### Current Goals
+I have already generated a wider maze environment and mapped it myself. Do not include mapping tasks. We are focusing exclusively on:
+
+**Goal 1: Verify Tight Navigation & Drift Fixes**
+We need to test the Nav2 configuration using the "2D Goal Pose" tool in RViz. Verify that the lowered acceleration limits prevent the robot from drifting into walls on long paths, and confirm that the robot can successfully navigate exactly 20cm away from a wall without the `GridBased` planner failing or triggering recovery spins.
+
+**Goal 2: Implement Autonomous Exploration (RRT)**
+I have left a portion of the maze unmapped intentionally. I have a package named `swerve_exploration`. We need to write a C++ node from scratch that reads the SLAM map, detects "frontiers" (the borders between known free space and unknown space), and automatically sends waypoints to Nav2 to autonomously explore and finish mapping the maze without manual teleoperation.
+
+### Workspace Structure & Code
+I have attached a text file containing my entire workspace structure and the current code for all my packages. Please acknowledge this state and let's begin executing Goal 1.
+
+```
+```
+
+### File: export_context.py
+```python
+#!/usr/bin/env python3
+import os
+
+# Ignore compiled/cache directories to keep the context clean
+IGNORE_DIRS = {'build', 'install', 'log', '__pycache__', '.git'}
+# We explicitly ignore the 'worlds' folder because the generated maze.sdf is massive 
+# and will consume too much context memory in the next chat. The LLM only needs to 
+# know the world exists, not its exact XML layout.
+
+TARGET_EXTS = {'.py', '.cpp', '.xml', '.yaml', '.xacro', '.urdf', '.txt', '.md'}
+TARGET_FILES = {'CMakeLists.txt', 'package.xml','commands.txt'}
+
+def generate_tree(dir_path, prefix=""):
+    """Generates a visual directory tree structure."""
+    tree_str = ""
+    try:
+        items = sorted(os.listdir(dir_path))
+    except PermissionError:
+        return ""
+
+    dirs = [d for d in items if os.path.isdir(os.path.join(dir_path, d)) and d not in IGNORE_DIRS]
+    files = [f for f in items if os.path.isfile(os.path.join(dir_path, f)) and 
+             (os.path.splitext(f)[1] in TARGET_EXTS or f in TARGET_FILES)]
+
+    for i, d in enumerate(dirs):
+        connector = "├── " if i < len(dirs) - 1 or len(files) > 0 else "└── "
+        tree_str += f"{prefix}{connector}{d}/\n"
+        extension = "│   " if i < len(dirs) - 1 or len(files) > 0 else "    "
+        tree_str += generate_tree(os.path.join(dir_path, d), prefix + extension)
+
+    for i, f in enumerate(files):
+        connector = "├── " if i < len(files) - 1 else "└── "
+        tree_str += f"{prefix}{connector}{f}\n"
+
+    return tree_str
+
+def export_context(root_dir, output_filename):
+    with open(output_filename, 'w', encoding='utf-8') as outfile:
+        # 1. Write the directory tree
+        outfile.write("# Workspace Structure\n")
+        outfile.write("```text\n")
+        outfile.write("swerve_robot/\n")
+        outfile.write(generate_tree(root_dir))
+        outfile.write("```\n\n")
+
+        # 2. Write the file contents
+        outfile.write("# File Contents\n\n")
+        
+        for current_root, dirs, files in os.walk(root_dir):
+            dirs[:] = [d for d in dirs if d not in IGNORE_DIRS]
+
+            for file in sorted(files):
+                ext = os.path.splitext(file)[1]
+                if ext in TARGET_EXTS or file in TARGET_FILES:
+                    filepath = os.path.join(current_root, file)
+                    rel_path = os.path.relpath(filepath, root_dir)
+                    
+                    # Map extensions to markdown syntax highlighting
+                    lang = ""
+                    if file == 'CMakeLists.txt': lang = 'cmake'
+                    elif ext == '.py': lang = 'python'
+                    elif ext == '.cpp': lang = 'cpp'
+                    elif ext in ['.yaml', '.yml']: lang = 'yaml'
+                    elif ext in ['.xml', '.xacro', '.urdf']: lang = 'xml'
+
+                    outfile.write(f"### File: {rel_path}\n")
+                    outfile.write(f"```{lang}\n")
+                    try:
+                        with open(filepath, 'r', encoding='utf-8') as infile:
+                            outfile.write(infile.read().strip())
+                    except Exception as e:
+                        outfile.write(f"// Error reading file: {e}")
+                    outfile.write(f"\n```\n\n")
+
+if __name__ == "__main__":
+    output_file = "chat_context.txt"
+    print(f"Scanning workspace and exporting to {output_file}...")
+    export_context(".", output_file)
+    print("Export complete. You can copy the contents of this file to your new chat.")
+```
+
+### File: swerve_gazebo/CMakeLists.txt
+```cmake
+# File: ~/ros2_ws/src/swerve_robot/swerve_gazebo/CMakeLists.txt
+
+cmake_minimum_required(VERSION 3.8)
+project(swerve_gazebo)
+
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
+
+find_package(ament_cmake REQUIRED)
+
+install(DIRECTORY worlds
+  DESTINATION share/${PROJECT_NAME}
+)
+
+ament_package()
+```
+
+### File: swerve_gazebo/package.xml
+```xml
+<?xml version="1.0"?>
+<!-- File: ~/ros2_ws/src/swerve_robot/swerve_gazebo/package.xml -->
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>swerve_gazebo</name>
+  <version>0.0.0</version>
+  <description>TODO: Package description</description>
+  <maintainer email="luis_glez2626@outlook.com">lags</maintainer>
+  <license>TODO: License declaration</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
+```
+
+### File: swerve_gazebo/worlds/json_to_sdf.py
+```python
+import json
+import argparse
+import xml.etree.ElementTree as ET
+from xml.dom import minidom
+
+def calculate_wall_geometry(start_str, direction, hall_width, height, thickness):
+    """
+    Calculates the center point and size of a wall segment.
+    """
+    # Scale coordinates to match the requested hall_width directly
+    # since the new JSON uses a 1.0 unitary grid.
+    scale_factor = hall_width
+    
+    raw_x, raw_y = map(float, start_str.split(','))
+    x_start = raw_x * scale_factor
+    y_start = raw_y * scale_factor
+    
+    # Extend the wall length by its thickness to close the corner gaps
+    length = hall_width + thickness
+    
+    if direction == "north":
+        center_x = x_start
+        center_y = y_start + (hall_width / 2.0)
+        size = f"{thickness} {length} {height}"
+    elif direction == "south":
+        center_x = x_start
+        center_y = y_start - (hall_width / 2.0)
+        size = f"{thickness} {length} {height}"
+    elif direction == "east":
+        center_x = x_start + (hall_width / 2.0)
+        center_y = y_start
+        size = f"{length} {thickness} {height}"
+    elif direction == "west":
+        center_x = x_start - (hall_width / 2.0)
+        center_y = y_start
+        size = f"{length} {thickness} {height}"
+
+    center_z = height / 2.0
+    pose = f"{center_x} {center_y} {center_z} 0 0 0"
+    
+    return pose, size
+
+def generate_sdf(json_file, output_file, hall_width, height, thickness):
+    with open(json_file, 'r') as f:
+        wall_data = json.load(f)
+
+    sdf = ET.Element('sdf', version='1.8')
+    world = ET.SubElement(sdf, 'world', name='maze_world')
+
+    physics = ET.SubElement(world, 'plugin', name='ignition::gazebo::systems::Physics', filename='libignition-gazebo-physics-system.so')
+    scene_broadcaster = ET.SubElement(world, 'plugin', name='ignition::gazebo::systems::SceneBroadcaster', filename='libignition-gazebo-scene-broadcaster-system.so')
+    user_commands = ET.SubElement(world, 'plugin', name='ignition::gazebo::systems::UserCommands', filename='libignition-gazebo-user-commands-system.so')
+
+    sensors = ET.SubElement(world, 'plugin', name='ignition::gazebo::systems::Sensors', filename='libignition-gazebo-sensors-system.so')
+    ET.SubElement(sensors, 'render_engine').text = 'ogre'
+
+    light = ET.SubElement(world, 'light', type='directional', name='sun')
+    ET.SubElement(light, 'cast_shadows').text = 'true'
+    ET.SubElement(light, 'pose').text = '0 0 10 0 0 0'
+    ET.SubElement(light, 'diffuse').text = '0.8 0.8 0.8 1'
+    ET.SubElement(light, 'specular').text = '0.2 0.2 0.2 1'
+    ET.SubElement(light, 'direction').text = '-0.5 0.1 -0.9'
+
+    ground = ET.SubElement(world, 'model', name='ground_plane')
+    ET.SubElement(ground, 'static').text = 'true'
+    link = ET.SubElement(ground, 'link', name='link')
+    ET.SubElement(link, 'pose').text = '0 0 0 0 0 0'
+    
+    collision = ET.SubElement(link, 'collision', name='collision')
+    geom_col = ET.SubElement(collision, 'geometry')
+    plane_col = ET.SubElement(geom_col, 'plane')
+    ET.SubElement(plane_col, 'normal').text = '0 0 1'
+    ET.SubElement(plane_col, 'size').text = '100 100'
+    
+    visual = ET.SubElement(link, 'visual', name='visual')
+    geom_vis = ET.SubElement(visual, 'geometry')
+    plane_vis = ET.SubElement(geom_vis, 'plane')
+    ET.SubElement(plane_vis, 'normal').text = '0 0 1'
+    ET.SubElement(plane_vis, 'size').text = '100 100'
+    
+    mat = ET.SubElement(visual, 'material')
+    ambient = ET.SubElement(mat, 'ambient')
+    ambient.text = '0.8 0.8 0.8 1'
+    diffuse = ET.SubElement(mat, 'diffuse')
+    diffuse.text = '0.8 0.8 0.8 1'
+
+    for wall in wall_data:
+        if wall['direction'] == "none":
+            continue
+        pose_str, size_str = calculate_wall_geometry(
+            wall['start'], wall['direction'], hall_width, height, thickness
+        )
+        
+        model = ET.SubElement(world, 'model', name=f"wall_{wall['id']}")
+        ET.SubElement(model, 'static').text = 'true'
+        ET.SubElement(model, 'pose').text = pose_str
+        
+        link = ET.SubElement(model, 'link', name='link')
+        
+        collision = ET.SubElement(link, 'collision', name='collision')
+        geom_col = ET.SubElement(collision, 'geometry')
+        box_col = ET.SubElement(geom_col, 'box')
+        ET.SubElement(box_col, 'size').text = size_str
+        
+        visual = ET.SubElement(link, 'visual', name='visual')
+        geom_vis = ET.SubElement(visual, 'geometry')
+        box_vis = ET.SubElement(geom_vis, 'box')
+        ET.SubElement(box_vis, 'size').text = size_str
+        
+        mat = ET.SubElement(visual, 'material')
+        ambient = ET.SubElement(mat, 'ambient')
+        ambient.text = '0.7 0.7 0.7 1'
+
+    xml_string = ET.tostring(sdf, encoding='unicode')
+    parsed_xml = minidom.parseString(xml_string)
+    pretty_xml = parsed_xml.toprettyxml(indent="  ")
+    
+    with open(output_file, "w") as f:
+        f.write(pretty_xml)
+    
+    print(f"Successfully generated {output_file} with {len(wall_data)} walls scaled to {hall_width}m width.")
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Convert JSON wall layout to Gazebo SDF.')
+    parser.add_argument('--input', type=str, default='wall_coordinates.json', help='Input JSON file path')
+    parser.add_argument('--output', type=str, default='maze.sdf', help='Output SDF file path')
+    parser.add_argument('--hall_width', type=float, default=2.0, help='Width of the hallways in meters')
+    parser.add_argument('--wall_height', type=float, default=1.0, help='Height of the walls in meters')
+    parser.add_argument('--wall_thickness', type=float, default=0.1, help='Thickness of the walls in meters')
+    
+    args = parser.parse_args()
+    generate_sdf(args.input, args.output, args.hall_width, args.wall_height, args.wall_thickness)
+```
+
+### File: swerve_exploration/CMakeLists.txt
+```cmake
+cmake_minimum_required(VERSION 3.8)
+project(swerve_exploration)
+
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
+
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(rclcpp_action REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(nav2_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(visualization_msgs REQUIRED)
+
+add_executable(rrt_node src/rrt_exploration.cpp)
+ament_target_dependencies(rrt_node
+  rclcpp
+  rclcpp_action
+  nav_msgs
+  geometry_msgs
+  nav2_msgs
+  tf2
+  tf2_ros
+  visualization_msgs
+)
+
+install(TARGETS rrt_node
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+if(BUILD_TESTING)
+  find_package(ament_lint_auto REQUIRED)
+  set(ament_cmake_copyright_FOUND TRUE)
+  set(ament_cmake_cpplint_FOUND TRUE)
+  ament_lint_auto_find_test_dependencies()
+endif()
+
+ament_package()
+```
+
+### File: swerve_exploration/package.xml
+```xml
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>swerve_exploration</name>
+  <version>0.0.0</version>
+  <description>RRT frontier exploration node</description>
+  <maintainer email="luis_glez2626@outlook.com">lags</maintainer>
+  <license>TODO: License declaration</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>rclcpp_action</depend>
+  <depend>nav_msgs</depend>
+  <depend>geometry_msgs</depend>
+  <depend>nav2_msgs</depend>
+  <depend>tf2</depend>
+  <depend>tf2_ros</depend>
+  <depend>visualization_msgs</depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
+```
+
+### File: swerve_exploration/src/rrt_exploration.cpp
+```cpp
+// File: ~/ros2_ws/src/swerve_robot/swerve_exploration/src/rrt_exploration.cpp
+
+#include <rclcpp/rclcpp.hpp>
+#include <nav_msgs/msg/occupancy_grid.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <tf2_ros/transform_listener.h>
+#include <tf2_ros/buffer.h>
+#include <rclcpp_action/rclcpp_action.hpp>
+#include <nav2_msgs/action/navigate_to_pose.hpp>
+#include <visualization_msgs/msg/marker.hpp>
+#include <random>
+#include <vector>
+#include <cmath>
+#include <chrono>
+#include <utility>
+
+using namespace std::chrono_literals;
+
+struct RRTNode {
+    double x;
+    double y;
+    int parent_idx;
+};
+
+class RRTExploration : public rclcpp::Node {
+public:
+    RRTExploration() : Node("rrt_exploration"), is_exploring_(false), exploration_finished_(false) {
+        
+        map_sub_ = this->create_subscription<nav_msgs::msg::OccupancyGrid>(
+            "/map", 10, std::bind(&RRTExploration::mapCallback, this, std::placeholders::_1));
+
+        tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
+        tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
+
+        nav_client_ = rclcpp_action::create_client<nav2_msgs::action::NavigateToPose>(
+            this, "navigate_to_pose");
+            
+        tree_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("rrt_tree", 10);
+
+        timer_ = this->create_wall_timer(
+            2000ms, std::bind(&RRTExploration::explorationLoop, this));
+            
+        RCLCPP_INFO(this->get_logger(), "RRT Exploration node started.");
+    }
+
+private:
+    void mapCallback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg) {
+        current_map_ = msg;
+    }
+
+    void explorationLoop() {
+        if (!current_map_ || exploration_finished_) {
+            return;
+        }
+
+        if (is_exploring_) {
+            if ((this->now() - goal_start_time_).seconds() > 40.0) {
+                RCLCPP_WARN(this->get_logger(), "Watchdog triggered: Nav2 is stuck. Force canceling and blacklisting.");
+                nav_client_->async_cancel_all_goals();
+                blacklist_.push_back({current_goal_.pose.position.x, current_goal_.pose.position.y});
+                is_exploring_ = false;
+            }
+            return;
+        }
+
+        geometry_msgs::msg::TransformStamped transform;
+        try {
+            transform = tf_buffer_->lookupTransform("map", "base_footprint", tf2::TimePointZero);
+        } catch (const tf2::TransformException & ex) {
+            RCLCPP_WARN(this->get_logger(), "Could not get transform: %s", ex.what());
+            return;
+        }
+
+        double start_x = transform.transform.translation.x;
+        double start_y = transform.transform.translation.y;
+
+        geometry_msgs::msg::PoseStamped frontier_goal;
+        if (findFrontierRRT(start_x, start_y, frontier_goal)) {
+            sendNavGoal(frontier_goal);
+        } else {
+            // Lock the node. Once no frontiers are found, hand control permanently to the operator.
+            exploration_finished_ = true;
+            timer_->cancel();
+            RCLCPP_INFO(this->get_logger(), "Exploration physically complete. Autonomous RRT timer deactivated. You may now safely send GUI waypoints.");
+        }
+    }
+
+    bool findFrontierRRT(double start_x, double start_y, geometry_msgs::msg::PoseStamped& goal) {
+        std::vector<RRTNode> tree;
+        tree.push_back({start_x, start_y, -1});
+
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        
+        double map_width_m = current_map_->info.width * current_map_->info.resolution;
+        double map_height_m = current_map_->info.height * current_map_->info.resolution;
+        double origin_x = current_map_->info.origin.position.x;
+        double origin_y = current_map_->info.origin.position.y;
+
+        std::uniform_real_distribution<> x_dist(origin_x, origin_x + map_width_m);
+        std::uniform_real_distribution<> y_dist(origin_y, origin_y + map_height_m);
+
+        double step_size = 0.5;
+        int max_iterations = 4000;
+        bool found_frontier = false;
+
+        for (int i = 0; i < max_iterations; ++i) {
+            double rand_x = x_dist(gen);
+            double rand_y = y_dist(gen);
+
+            int nearest_idx = getNearestNode(tree, rand_x, rand_y);
+            RRTNode nearest = tree[nearest_idx];
+
+            double theta = std::atan2(rand_y - nearest.y, rand_x - nearest.x);
+            double new_x = nearest.x + step_size * std::cos(theta);
+            double new_y = nearest.y + step_size * std::sin(theta);
+
+            int collision_state = checkLineCollision(nearest.x, nearest.y, new_x, new_y);
+            
+            if (collision_state == 0) {
+                tree.push_back({new_x, new_y, nearest_idx});
+            } else if (collision_state == -1) {
+                if (isFrontierSafe(new_x, new_y)) {
+                    goal.header.frame_id = "map";
+                    goal.header.stamp = this->now();
+                    goal.pose.position.x = new_x;
+                    goal.pose.position.y = new_y;
+                    goal.pose.orientation.w = 1.0;
+                    found_frontier = true;
+                    break;
+                }
+            }
+        }
+
+        publishTreeMarker(tree);
+        return found_frontier;
+    }
+
+    void publishTreeMarker(const std::vector<RRTNode>& tree) {
+        visualization_msgs::msg::Marker tree_marker;
+        tree_marker.header.frame_id = "map";
+        tree_marker.header.stamp = this->now();
+        tree_marker.ns = "rrt_exploration";
+        tree_marker.id = 0;
+        tree_marker.type = visualization_msgs::msg::Marker::LINE_LIST;
+        tree_marker.action = visualization_msgs::msg::Marker::ADD;
+        tree_marker.pose.orientation.w = 1.0;
+        tree_marker.scale.x = 0.02; 
+        tree_marker.color.r = 1.0;
+        tree_marker.color.g = 0.0;
+        tree_marker.color.b = 0.0;
+        tree_marker.color.a = 0.8;
+
+        for (size_t i = 1; i < tree.size(); ++i) {
+            geometry_msgs::msg::Point p1, p2;
+            p1.x = tree[i].x;
+            p1.y = tree[i].y;
+            p1.z = 0.1;
+            
+            p2.x = tree[tree[i].parent_idx].x;
+            p2.y = tree[tree[i].parent_idx].y;
+            p2.z = 0.1;
+
+            tree_marker.points.push_back(p1);
+            tree_marker.points.push_back(p2);
+        }
+        tree_pub_->publish(tree_marker);
+    }
+
+    bool isFrontierSafe(double x, double y) {
+        for (const auto& bad_pt : blacklist_) {
+            if (std::hypot(bad_pt.first - x, bad_pt.second - y) < 1.5) {
+                return false; 
+            }
+        }
+
+        // 0.62m physical constraint + 0.03m grid snap tolerance
+        double safe_radius = 0.65; 
+        double res = current_map_->info.resolution;
+        int cells = std::ceil(safe_radius / res);
+
+        for (int dx = -cells; dx <= cells; ++dx) {
+            for (int dy = -cells; dy <= cells; ++dy) {
+                if (dx * dx + dy * dy <= cells * cells) {
+                    double cx = x + dx * res;
+                    double cy = y + dy * res;
+                    int val = getMapValue(cx, cy);
+                    
+                    if (val > 50 && val <= 100) {
+                        return false; 
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
+    int getNearestNode(const std::vector<RRTNode>& tree, double x, double y) {
+        int nearest_idx = 0;
+        double min_dist = std::numeric_limits<double>::max();
+
+        for (size_t i = 0; i < tree.size(); ++i) {
+            double dist = std::hypot(tree[i].x - x, tree[i].y - y);
+            if (dist < min_dist) {
+                min_dist = dist;
+                nearest_idx = i;
+            }
+        }
+        return nearest_idx;
+    }
+
+    int checkLineCollision(double x0, double y0, double x1, double y1) {
+        int steps = 10;
+        double dx = (x1 - x0) / steps;
+        double dy = (y1 - y0) / steps;
+
+        for (int i = 0; i <= steps; ++i) {
+            double cx = x0 + i * dx;
+            double cy = y0 + i * dy;
+            
+            int map_val = getMapValue(cx, cy);
+            if (map_val == -1) {
+                return -1; 
+            }
+            if (map_val > 50) {
+                return 1; 
+            }
+        }
+        return 0; 
+    }
+
+    int getMapValue(double x, double y) {
+        double origin_x = current_map_->info.origin.position.x;
+        double origin_y = current_map_->info.origin.position.y;
+        double res = current_map_->info.resolution;
+
+        int grid_x = std::floor((x - origin_x) / res);
+        int grid_y = std::floor((y - origin_y) / res);
+
+        if (grid_x < 0 || grid_x >= (int)current_map_->info.width ||
+            grid_y < 0 || grid_y >= (int)current_map_->info.height) {
+            return 100;
+        }
+
+        int index = grid_y * current_map_->info.width + grid_x;
+        return current_map_->data[index];
+    }
+
+    void sendNavGoal(const geometry_msgs::msg::PoseStamped& goal) {
+        if (!nav_client_->wait_for_action_server(std::chrono::seconds(2))) {
+            RCLCPP_ERROR(this->get_logger(), "Nav2 action server not available.");
+            return;
+        }
+
+        is_exploring_ = true;
+        current_goal_ = goal; 
+        goal_start_time_ = this->now();
+
+        auto goal_msg = nav2_msgs::action::NavigateToPose::Goal();
+        goal_msg.pose = goal;
+
+        auto send_goal_options = rclcpp_action::Client<nav2_msgs::action::NavigateToPose>::SendGoalOptions();
+        
+        send_goal_options.goal_response_callback = 
+            [this](const rclcpp_action::ClientGoalHandle<nav2_msgs::action::NavigateToPose>::SharedPtr & goal_handle) {
+                if (!goal_handle) {
+                    RCLCPP_WARN(this->get_logger(), "Nav2 instantly REJECTED the goal. Blacklisting.");
+                    blacklist_.push_back({current_goal_.pose.position.x, current_goal_.pose.position.y});
+                    is_exploring_ = false;
+                }
+            };
+
+        send_goal_options.result_callback = 
+            [this](const rclcpp_action::ClientGoalHandle<nav2_msgs::action::NavigateToPose>::WrappedResult & result) {
+                is_exploring_ = false;
+               
+                if (result.code != rclcpp_action::ResultCode::SUCCEEDED) {
+                    RCLCPP_WARN(this->get_logger(), "Nav2 aborted. The area is inaccessible. Adding to blacklist.");
+                    blacklist_.push_back({current_goal_.pose.position.x, current_goal_.pose.position.y});
+                }
+            };
+
+        nav_client_->async_send_goal(goal_msg, send_goal_options);
+        RCLCPP_INFO(this->get_logger(), "Heading to new frontier at x: %.2f, y: %.2f", goal.pose.position.x, goal.pose.position.y);
+    }
+
+    rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr map_sub_;
+    std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+    std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+    rclcpp_action::Client<nav2_msgs::action::NavigateToPose>::SharedPtr nav_client_;
+    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr tree_pub_;
+    rclcpp::TimerBase::SharedPtr timer_;
+    
+    nav_msgs::msg::OccupancyGrid::SharedPtr current_map_;
+    bool is_exploring_;
+    bool exploration_finished_;
+    geometry_msgs::msg::PoseStamped current_goal_;
+    std::vector<std::pair<double, double>> blacklist_; 
+    rclcpp::Time goal_start_time_;
+};
+
+int main(int argc, char **argv) {
+    rclcpp::init(argc, argv);
+    rclcpp::spin(std::make_shared<RRTExploration>());
+    rclcpp::shutdown();
+    return 0;
+}
+```
+
+### File: swerve_bringup/CMakeLists.txt
+```cmake
+# File: ~/ros2_ws/src/swerve_robot/swerve_bringup/CMakeLists.txt
+
+cmake_minimum_required(VERSION 3.8)
+project(swerve_bringup)
+
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
+
+find_package(ament_cmake REQUIRED)
+
+install(DIRECTORY launch config
+  DESTINATION share/${PROJECT_NAME}
+)
+
+ament_package()
+```
+
+### File: swerve_bringup/package.xml
+```xml
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>swerve_bringup</name>
+  <version>0.0.0</version>
+  <description>TODO: Package description</description>
+  <maintainer email="luis_glez2626@outlook.com">lags</maintainer>
+  <license>TODO: License declaration</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
+```
+
+### File: swerve_bringup/launch/sim_bringup.launch.py
+```python
+# File: ~/ros2_ws/src/swerve_robot/swerve_bringup/launch/sim_bringup.launch.py
+
+import os
+from launch import LaunchDescription
+from launch.actions import IncludeLaunchDescription, DeclareLaunchArgument
+from launch.conditions import IfCondition
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
+from launch.substitutions import PathJoinSubstitution, Command, LaunchConfiguration
+from launch_ros.substitutions import FindPackageShare
+
+def generate_launch_description():
+    pkg_bringup = FindPackageShare('swerve_bringup')
+    pkg_description = FindPackageShare('swerve_description')
+    pkg_gazebo = FindPackageShare('swerve_gazebo')
+    pkg_ros_gz_sim = FindPackageShare('ros_gz_sim')
+
+    # Launch Configurations
+    use_rviz = LaunchConfiguration('use_rviz')
+    
+    # Paths
+    world_file = PathJoinSubstitution([pkg_gazebo, 'worlds', 'maze.sdf'])
+    urdf_file = PathJoinSubstitution([pkg_description, 'urdf', 'swerve_robot.urdf.xacro'])
+    bridge_config = PathJoinSubstitution([pkg_bringup, 'config', 'bridge.yaml'])
+    rviz_config_file = PathJoinSubstitution([pkg_bringup, 'config', 'view_robot.rviz'])
+
+    # Declare Launch Arguments
+    declare_use_rviz_cmd = DeclareLaunchArgument(
+        'use_rviz',
+        default_value='True',
+        description='Whether to start RViz'
+    )
+
+    robot_state_publisher = Node(
+        package='robot_state_publisher',
+        executable='robot_state_publisher',
+        parameters=[{
+            'robot_description': ParameterValue(Command(['xacro ', urdf_file]), value_type=str),
+            'use_sim_time': True
+        }]
+    )
+
+    gazebo = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            PathJoinSubstitution([pkg_ros_gz_sim, 'launch', 'gz_sim.launch.py'])
+        ),
+        launch_arguments={'gz_args': ['-r ', world_file]}.items(),
+    )
+
+    spawn_robot = Node(
+        package='ros_gz_sim',
+        executable='create',
+        arguments=['-topic', 'robot_description', '-name', 'swerve_robot', '-x', '0.0', '-y', '0.0', '-z', '0.3'],
+        output='screen'
+    )
+
+    bridge = Node(
+        package='ros_gz_bridge',
+        executable='parameter_bridge',
+        parameters=[{
+            'config_file': bridge_config,
+            'use_sim_time': True
+        }],
+        output='screen'
+    )
+
+    joint_state_broadcaster = Node(
+        package='controller_manager',
+        executable='spawner',
+        arguments=['joint_state_broadcaster'],
+        parameters=[{'use_sim_time': True}]
+    )
+    
+    steering_controller = Node(
+        package='controller_manager',
+        executable='spawner',
+        arguments=['steering_controller'],
+        parameters=[{'use_sim_time': True}]
+    )
+    
+    velocity_controller = Node(
+        package='controller_manager',
+        executable='spawner',
+        arguments=['velocity_controller'],
+        parameters=[{'use_sim_time': True}]
+    )
+
+    kinematics = Node(
+        package='swerve_control',
+        executable='swerve_kinematics',
+        parameters=[{'use_sim_time': True}],
+        output='screen'
+    )
+
+    rviz_node = Node(
+        package='rviz2',
+        executable='rviz2',
+        name='rviz2',
+        output='screen',
+        arguments=['-d', rviz_config_file],
+        parameters=[{'use_sim_time': True}],
+        condition=IfCondition(use_rviz)
+    )
+
+    return LaunchDescription([
+        declare_use_rviz_cmd,
+        robot_state_publisher,
+        gazebo,
+        spawn_robot,
+        bridge,
+        joint_state_broadcaster,
+        steering_controller,
+        velocity_controller,
+        kinematics,
+        rviz_node
+    ])
+```
+
+### File: swerve_bringup/config/bridge.yaml
+```yaml
+# File: ~/ros2_ws/src/swerve_robot/swerve_bringup/config/bridge.yaml
+
+- ros_topic_name: "/clock"
+  gz_topic_name: "/clock"
+  ros_type_name: "rosgraph_msgs/msg/Clock"
+  gz_type_name: "ignition.msgs.Clock"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/scan"
+  gz_topic_name: "/scan"
+  ros_type_name: "sensor_msgs/msg/LaserScan"
+  gz_type_name: "ignition.msgs.LaserScan"
+  direction: GZ_TO_ROS
+
+- ros_topic_name: "/imu/data"
+  gz_topic_name: "/imu/data"
+  ros_type_name: "sensor_msgs/msg/Imu"
+  gz_type_name: "ignition.msgs.IMU"
+  direction: GZ_TO_ROS
+```
+
+### File: swerve_description/CMakeLists.txt
+```cmake
+# File: ~/ros2_ws/src/swerve_robot/swerve_description/CMakeLists.txt
+
+cmake_minimum_required(VERSION 3.8)
+project(swerve_description)
+
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
+
+find_package(ament_cmake REQUIRED)
+
+install(DIRECTORY urdf
+  DESTINATION share/${PROJECT_NAME}
+)
+
+ament_package()
+```
+
+### File: swerve_description/package.xml
+```xml
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>swerve_description</name>
+  <version>0.0.0</version>
+  <description>TODO: Package description</description>
+  <maintainer email="luis_glez2626@outlook.com">lags</maintainer>
+  <license>TODO: License declaration</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
+```
+
+### File: swerve_description/urdf/swerve_module.xacro
+```xml
+<?xml version="1.0"?>
+<!-- File: ~/ros2_ws/src/swerve_robot/swerve_description/urdf/swerve_module.xacro -->
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+    <xacro:macro name="swerve_module" params="prefix x y z">
+        
+        <!-- Steering Link (Yaw) -->
+        <link name="${prefix}_steering_link">
+            <visual>
+                <geometry>
+                    <cylinder radius="0.05" length="0.05"/>
+                </geometry>
+                <material name="gray">
+                    <color rgba="0.5 0.5 0.5 1.0"/>
+                </material>
+            </visual>
+            <collision>
+                <geometry>
+                    <cylinder radius="0.05" length="0.05"/>
+                </geometry>
+            </collision>
+            <inertial>
+                <mass value="0.5"/>
+                <inertia ixx="0.0004" ixy="0" ixz="0" iyy="0.0004" iyz="0" izz="0.0006"/>
+            </inertial>
+        </link>
+
+        <joint name="${prefix}_steering_joint" type="continuous">
+            <parent link="base_link"/>
+            <child link="${prefix}_steering_link"/>
+            <origin xyz="${x} ${y} ${z}" rpy="0 0 0"/>
+            <axis xyz="0 0 1"/>
+            <limit effort="20.0" velocity="10.0"/>
+            <dynamics damping="0.5" friction="0.1"/>
+        </joint>
+
+        <!-- Wheel Link (Pitch) -->
+        <link name="${prefix}_wheel_link">
+            <visual>
+                <origin xyz="0 0 0" rpy="${pi/2} 0 0"/>
+                <geometry>
+                    <cylinder radius="0.1" length="0.05"/>
+                </geometry>
+                <material name="black">
+                    <color rgba="0.1 0.1 0.1 1.0"/>
+                </material>
+            </visual>
+            <collision>
+                <origin xyz="0 0 0" rpy="0 0 0"/>
+                <geometry>
+                    <sphere radius="0.1"/>
+                </geometry>
+            </collision>
+            <inertial>
+                <mass value="1.0"/>
+                <inertia ixx="0.004" ixy="0" ixz="0" iyy="0.004" iyz="0" izz="0.004"/>
+            </inertial>
+        </link>
+
+        <joint name="${prefix}_wheel_joint" type="continuous">
+            <parent link="${prefix}_steering_link"/>
+            <child link="${prefix}_wheel_link"/>
+            <origin xyz="0 0 -0.15" rpy="0 0 0"/>
+            <axis xyz="0 1 0"/>
+            <limit effort="20.0" velocity="25.0"/>
+            <dynamics damping="0.1" friction="0.05"/>
+        </joint>
+
+        <gazebo reference="${prefix}_wheel_link">
+            <mu1>1.5</mu1>
+            <mu2>1.5</mu2>
+            <kp>1000000.0</kp>
+            <kd>100.0</kd>
+        </gazebo>
+
+    </xacro:macro>
+
+    <!-- Macro for generating the ros2_control interfaces for a module -->
+    <xacro:macro name="swerve_ros2_control" params="prefix">
+        <joint name="${prefix}_steering_joint">
+            <command_interface name="position"/>
+            <state_interface name="position"/>
+            <state_interface name="velocity"/>
+        </joint>
+        <joint name="${prefix}_wheel_joint">
+            <command_interface name="velocity"/>
+            <state_interface name="position"/>
+            <state_interface name="velocity"/>
+        </joint>
+    </xacro:macro>
+
+</robot>
+```
+
+### File: swerve_description/urdf/swerve_robot.urdf.xacro
+```xml
+<?xml version="1.0"?>
+<!-- File: ~/ros2_ws/src/swerve_robot/swerve_description/urdf/swerve_robot.urdf.xacro -->
+<robot name="swerve_robot" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+    <xacro:include filename="swerve_module.xacro" />
+
+    <link name="base_footprint"/>
+
+    <link name="base_link">
+        <visual>
+            <origin xyz="0 0 0.1" rpy="0 0 0"/>
+            <geometry>
+                <cylinder radius="0.42" length="0.2"/>
+            </geometry>
+            <material name="blue_solid">
+                <color rgba="0.1 0.3 0.8 1.0"/>
+            </material>
+        </visual>
+        <collision>
+            <origin xyz="0 0 0.1" rpy="0 0 0"/>
+            <geometry>
+                <cylinder radius="0.42" length="0.2"/>
+            </geometry>
+        </collision>
+        <inertial>
+            <origin xyz="0 0 0.1" rpy="0 0 0"/>
+            <mass value="20.0"/>
+            <inertia ixx="0.948" ixy="0" ixz="0" iyy="0.948" iyz="0" izz="1.764"/>
+        </inertial>
+    </link>
+
+    <joint name="base_joint" type="fixed">
+        <parent link="base_footprint"/>
+        <child link="base_link"/>
+        <origin xyz="0 0 0.35" rpy="0 0 0"/>
+    </joint>
+
+    <link name="front_indicator_link">
+        <visual>
+            <geometry>
+                <cylinder radius="0.05" length="0.001"/>
+            </geometry>
+            <material name="red">
+                <color rgba="1.0 0.0 0.0 1.0"/>
+            </material>
+        </visual>
+    </link>
+    <joint name="front_indicator_joint" type="fixed">
+        <parent link="base_link"/>
+        <child link="front_indicator_link"/>
+        <origin xyz="0.35 0 0.2005" rpy="0 0 0"/>
+    </joint>
+
+    <xacro:swerve_module prefix="fl" x="0.3" y="0.3" z="-0.1" />
+    <xacro:swerve_module prefix="fr" x="0.3" y="-0.3" z="-0.1" />
+    <xacro:swerve_module prefix="rl" x="-0.3" y="0.3" z="-0.1" />
+    <xacro:swerve_module prefix="rr" x="-0.3" y="-0.3" z="-0.1" />
+
+    <link name="lidar_link">
+        <visual>
+            <geometry>
+                <cylinder radius="0.05" length="0.05"/>
+            </geometry>
+            <material name="black"/>
+        </visual>
+    </link>
+    <joint name="lidar_joint" type="fixed">
+        <parent link="base_link"/>
+        <child link="lidar_link"/>
+        <origin xyz="0 0 0.225" rpy="0 0 0"/>
+    </joint>
+
+    <link name="imu_link"/>
+    <joint name="imu_joint" type="fixed">
+        <parent link="base_link"/>
+        <child link="imu_link"/>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+    </joint>
+
+    <ros2_control name="IgnitionSystem" type="system">
+        <hardware>
+            <plugin>ign_ros2_control/IgnitionSystem</plugin>
+        </hardware>
+        <xacro:swerve_ros2_control prefix="fl" />
+        <xacro:swerve_ros2_control prefix="fr" />
+        <xacro:swerve_ros2_control prefix="rl" />
+        <xacro:swerve_ros2_control prefix="rr" />
+    </ros2_control>
+
+    <gazebo reference="lidar_link">
+        <sensor name="lidar" type="gpu_lidar">
+            <always_on>true</always_on>
+            <visualize>true</visualize>
+            <update_rate>10</update_rate>
+            <ray>
+                <scan>
+                    <horizontal>
+                        <samples>360</samples>
+                        <resolution>1.0</resolution>
+                        <min_angle>-3.14159</min_angle>
+                        <max_angle>3.14159</max_angle>
+                    </horizontal>
+                </scan>
+                <range>
+                    <min>0.45</min>
+                    <max>25.0</max>
+                    <resolution>0.015</resolution>
+                </range>
+            </ray>
+            <topic>scan</topic>
+            <ignition_frame_id>lidar_link</ignition_frame_id>
+        </sensor>
+    </gazebo>
+
+    <gazebo reference="imu_link">
+        <sensor name="imu" type="imu">
+            <always_on>true</always_on>
+            <update_rate>50</update_rate>
+            <topic>imu/data</topic>
+            <ignition_frame_id>imu_link</ignition_frame_id>
+        </sensor>
+    </gazebo>
+
+    <gazebo>
+        <plugin filename="ign_ros2_control-system" name="ign_ros2_control::IgnitionROS2ControlPlugin">
+            <parameters>$(find swerve_control)/config/swerve_controllers.yaml</parameters>
+        </plugin>
+    </gazebo>
+
+</robot>
+```
+
+### File: swerve_gui/package.xml
+```xml
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>swerve_gui</name>
+  <version>0.0.0</version>
+  <description>TODO: Package description</description>
+  <maintainer email="luis_glez2626@outlook.com">lags</maintainer>
+  <license>TODO: License declaration</license>
+
+  <depend>rclpy</depend>
+
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
+
+  <export>
+    <build_type>ament_python</build_type>
+  </export>
+</package>
+```
+
+### File: swerve_gui/setup.py
+```python
+# File: ~/ros2_ws/src/swerve_robot/swerve_gui/setup.py
+
+from setuptools import find_packages, setup
+
+package_name = 'swerve_gui'
+
+setup(
+    name=package_name,
+    version='0.0.0',
+    packages=find_packages(exclude=['test']),
+    data_files=[
+        ('share/ament_index/resource_index/packages',
+            ['resource/' + package_name]),
+        ('share/' + package_name, ['package.xml']),
+    ],
+    install_requires=['setuptools'],
+    zip_safe=True,
+    maintainer='user',
+    maintainer_email='user@todo.todo',
+    description='PyQt6 GUI for Swerve Robot Control',
+    license='Apache-2.0',
+    tests_require=['pytest'],
+    entry_points={
+        'console_scripts': [
+            'gui = swerve_gui.gui_node:main'
+        ],
+    },
+)
+```
+
+### File: swerve_gui/swerve_gui/__init__.py
+```python
+
+```
+
+### File: swerve_gui/swerve_gui/gui_node.py
+```python
+# File: ~/ros2_ws/src/swerve_robot/swerve_gui/swerve_gui/gui_node.py
+
+import sys
+import os
+import math
+import csv
+import subprocess
+from collections import deque
+
+import rclpy
+from rclpy.node import Node
+from rclpy.action import ActionClient
+from geometry_msgs.msg import Twist, PoseStamped
+from nav_msgs.msg import Odometry
+from sensor_msgs.msg import JointState
+from nav2_msgs.action import NavigateToPose
+
+from tf2_ros import TransformException
+from tf2_ros.buffer import Buffer
+from tf2_ros.transform_listener import TransformListener
+
+from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
+                             QHBoxLayout, QSlider, QLabel, QPushButton, 
+                             QGroupBox, QComboBox)
+from PyQt6.QtCore import Qt, QPointF, pyqtSignal, QThread
+from PyQt6.QtGui import QPainter, QColor, QPen, QBrush, QFont
+
+def euler_from_quaternion(x, y, z, w):
+    """Convert a quaternion into euler angles (roll, pitch, yaw)"""
+    t3 = +2.0 * (w * z + x * y)
+    t4 = +1.0 - 2.0 * (y * y + z * z)
+    return math.atan2(t3, t4)
+
+class VirtualJoystick(QWidget):
+    joystick_moved = pyqtSignal(float, float)
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setMinimumSize(200, 200)
+        self.joystick_center = QPointF(100, 100)
+        self.handle_pos = QPointF(100, 100)
+        self.radius = 80
+        self.handle_radius = 20
+        self.pressed = False
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        painter.setPen(QPen(Qt.GlobalColor.black, 2))
+        painter.setBrush(QBrush(QColor(220, 220, 220)))
+        painter.drawEllipse(self.joystick_center, self.radius, self.radius)
+        
+        painter.setBrush(QBrush(QColor(50, 100, 200)))
+        painter.drawEllipse(self.handle_pos, self.handle_radius, self.handle_radius)
+
+    def update_position(self, pos):
+        vec = pos - self.joystick_center
+        dist = math.hypot(vec.x(), vec.y())
+        
+        if dist > self.radius:
+            vec = vec * (self.radius / dist)
+            self.handle_pos = self.joystick_center + vec
+        else:
+            self.handle_pos = pos
+
+        normalized_x = -vec.y() / self.radius 
+        normalized_y = -vec.x() / self.radius 
+        
+        self.joystick_moved.emit(normalized_x, normalized_y)
+        self.update()
+
+    def mousePressEvent(self, event):
+        self.pressed = True
+        self.update_position(event.position())
+
+    def mouseMoveEvent(self, event):
+        if self.pressed:
+            self.update_position(event.position())
+
+    def mouseReleaseEvent(self, event):
+        self.pressed = False
+        self.handle_pos = self.joystick_center
+        self.joystick_moved.emit(0.0, 0.0)
+        self.update()
+
+
+class ROS2Thread(QThread):
+    pose_signal = pyqtSignal(float, float, float)
+    vel_signal = pyqtSignal(float, float, float)
+    wheel_signal = pyqtSignal(list)
+    nav_status_signal = pyqtSignal(str)
+
+    def __init__(self):
+        super().__init__()
+        rclpy.init()
+        self.node = rclpy.create_node('swerve_gui_node')
+        self.node.set_parameters([rclpy.parameter.Parameter('use_sim_time', rclpy.Parameter.Type.BOOL, True)])
+
+        self.cmd_pub = self.node.create_publisher(Twist, '/cmd_vel', 10)
+        self.odom_sub = self.node.create_subscription(Odometry, '/odom', self.odom_callback, 10)
+        self.joint_sub = self.node.create_subscription(JointState, '/joint_states', self.joint_callback, 10)
+
+        self.nav_client = ActionClient(self.node, NavigateToPose, 'navigate_to_pose')
+
+        self.tf_buffer = Buffer()
+        self.tf_listener = TransformListener(self.tf_buffer, self.node)
+        self.tf_timer = self.node.create_timer(0.1, self.tf_callback)
+
+        self.data_buffer = deque(maxlen=750)
+        self.current_cmd = {'vx': 0.0, 'vy': 0.0, 'omega': 0.0}
+
+    def run(self):
+        rclpy.spin(self.node)
+
+    def tf_callback(self):
+        try:
+            t = self.tf_buffer.lookup_transform('map', 'base_footprint', rclpy.time.Time())
+            x = t.transform.translation.x
+            y = t.transform.translation.y
+            yaw = euler_from_quaternion(
+                t.transform.rotation.x, t.transform.rotation.y, 
+                t.transform.rotation.z, t.transform.rotation.w)
+            self.pose_signal.emit(x, y, yaw)
+        except TransformException:
+            pass 
+
+    def odom_callback(self, msg):
+        vx = msg.twist.twist.linear.x
+        vy = msg.twist.twist.linear.y
+        omega = msg.twist.twist.angular.z
+        self.vel_signal.emit(vx, vy, omega)
+        
+        sim_time = self.node.get_clock().now().nanoseconds / 1e9
+        self.data_buffer.append({
+            'timestamp': sim_time,
+            'cmd_vx': self.current_cmd['vx'],
+            'cmd_vy': self.current_cmd['vy'],
+            'cmd_omega': self.current_cmd['omega'],
+            'odom_vx': vx,
+            'odom_vy': vy,
+            'odom_omega': omega
+        })
+
+    def joint_callback(self, msg):
+        wheel_joints = ['fl_wheel_joint', 'fr_wheel_joint', 'rl_wheel_joint', 'rr_wheel_joint']
+        speeds = []
+        for joint in wheel_joints:
+            if joint in msg.name:
+                idx = msg.name.index(joint)
+                speeds.append(msg.velocity[idx])
+        if len(speeds) == 4:
+            self.wheel_signal.emit(speeds)
+
+    def publish_twist(self, linear_x, linear_y, angular_z):
+        self.current_cmd['vx'] = float(linear_x)
+        self.current_cmd['vy'] = float(linear_y)
+        self.current_cmd['omega'] = float(angular_z)
+        
+        msg = Twist()
+        msg.linear.x = self.current_cmd['vx']
+        msg.linear.y = self.current_cmd['vy']
+        msg.angular.z = self.current_cmd['omega']
+        self.cmd_pub.publish(msg)
+
+    def send_nav2_goal(self, x, y, yaw):
+        self.nav_status_signal.emit("Waiting for Nav2 server...")
+        if not self.nav_client.wait_for_server(timeout_sec=2.0):
+            self.nav_status_signal.emit("ERROR: Nav2 Server Offline.")
+            return
+
+        goal_msg = NavigateToPose.Goal()
+        goal_msg.pose.header.frame_id = 'map'
+        goal_msg.pose.header.stamp = self.node.get_clock().now().to_msg()
+        goal_msg.pose.pose.position.x = x
+        goal_msg.pose.pose.position.y = y
+        
+        goal_msg.pose.pose.orientation.z = math.sin(yaw / 2.0)
+        goal_msg.pose.pose.orientation.w = math.cos(yaw / 2.0)
+
+        self.nav_status_signal.emit(f"Sending goal to ({x:.2f}, {y:.2f})...")
+        send_goal_future = self.nav_client.send_goal_async(goal_msg)
+        send_goal_future.add_done_callback(self.goal_response_callback)
+
+    def goal_response_callback(self, future):
+        goal_handle = future.result()
+        if not goal_handle.accepted:
+            self.nav_status_signal.emit("Goal Rejected by Nav2.")
+            return
+
+        self.nav_status_signal.emit("Navigating to Goal...")
+        get_result_future = goal_handle.get_result_async()
+        get_result_future.add_done_callback(self.get_result_callback)
+
+    def get_result_callback(self, future):
+        status = future.result().status
+        if status == 4: 
+            self.nav_status_signal.emit("Goal Reached Successfully!")
+        elif status == 5: 
+            self.nav_status_signal.emit("Goal Canceled.")
+        elif status == 6: 
+            self.nav_status_signal.emit("Goal Aborted (Blocked/Failed).")
+
+    def save_log(self, filename="swerve_log.csv"):
+        data_copy = list(self.data_buffer)
+        if not data_copy:
+            return False
+            
+        keys = data_copy[0].keys()
+        with open(filename, 'w', newline='') as output_file:
+            dict_writer = csv.DictWriter(output_file, fieldnames=keys)
+            dict_writer.writeheader()
+            dict_writer.writerows(data_copy)
+        return True
+
+    def stop(self):
+        self.node.destroy_node()
+        rclpy.shutdown()
+
+
+class MainWindow(QMainWindow):
+    def __init__(self):
+        super().__init__()
+        self.setWindowTitle("Swerve Mobile Robot - Operator Dashboard")
+        self.resize(850, 450)
+        
+        self.waypoints = {
+            "Select Destination...": None,
+            "Corner Level 4 South West": (-12.0, -12.0, 0.0),
+            "Corner Level 4 South East": (12.0, -12.0, 0.0),
+            "Corner Level 4 North West": (-12.0, 12.0, 0.0),
+            "Corner Level 4 North East": (12.0, 12.0, 0.0),
+            "Alley East": (0.0, -9.0, 0.0),
+            "Alley North East": (9.0, -9.0, 0.0),
+            "Corner Level 3 North West": (9.0, 9.0, 0.0),
+            "Corner Level 3 North East": (9.0, -6.0, 0.0)
+        }
+
+        self.ros_thread = ROS2Thread()
+        self.ros_thread.pose_signal.connect(self.update_pose_ui)
+        self.ros_thread.vel_signal.connect(self.update_vel_ui)
+        self.ros_thread.wheel_signal.connect(self.update_wheel_ui)
+        self.ros_thread.nav_status_signal.connect(self.update_nav_status)
+        self.ros_thread.start()
+
+        self.current_v_x = 0.0
+        self.current_v_y = 0.0
+        self.current_omega = 0.0
+        self.max_speed = 1.0 
+        self.max_turn = 2.0  
+
+        self.init_ui()
+
+    def init_ui(self):
+        central_widget = QWidget()
+        self.setCentralWidget(central_widget)
+        main_layout = QHBoxLayout(central_widget)
+
+        # ---------------- LEFT: Teleoperation ----------------
+        teleop_group = QGroupBox("Manual Teleoperation")
+        teleop_layout = QVBoxLayout()
+        
+        self.joystick = VirtualJoystick()
+        self.joystick.joystick_moved.connect(self.on_joystick_moved)
+        teleop_layout.addWidget(self.joystick, alignment=Qt.AlignmentFlag.AlignCenter)
+
+        yaw_layout = QHBoxLayout()
+        yaw_layout.addWidget(QLabel("Yaw:"))
+        self.yaw_slider = QSlider(Qt.Orientation.Horizontal)
+        self.yaw_slider.setMinimum(-100)
+        self.yaw_slider.setMaximum(100)
+        self.yaw_slider.setValue(0)
+        self.yaw_slider.valueChanged.connect(self.on_yaw_changed)
+        self.yaw_slider.sliderReleased.connect(self.on_yaw_released)
+        yaw_layout.addWidget(self.yaw_slider)
+        teleop_layout.addLayout(yaw_layout)
+
+        self.btn_save_log = QPushButton("Save Last 15s Kinematic Log")
+        self.btn_save_log.clicked.connect(self.on_save_log_clicked)
+        teleop_layout.addWidget(self.btn_save_log)
+
+        self.btn_save_map = QPushButton("Save SLAM Map")
+        self.btn_save_map.clicked.connect(self.on_save_map_clicked)
+        teleop_layout.addWidget(self.btn_save_map)
+        
+        teleop_group.setLayout(teleop_layout)
+        main_layout.addWidget(teleop_group)
+
+        # ---------------- MIDDLE: Navigation ----------------
+        nav_group = QGroupBox("Autonomous Navigation")
+        nav_layout = QVBoxLayout()
+        
+        self.lbl_nav_status = QLabel("Status: Idle")
+        self.lbl_nav_status.setStyleSheet("font-weight: bold; color: blue;")
+        nav_layout.addWidget(self.lbl_nav_status)
+        
+        self.btn_home = QPushButton("🏠 SEND HOME")
+        self.btn_home.setStyleSheet("background-color: #4CAF50; color: white; font-weight: bold; padding: 10px;")
+        self.btn_home.clicked.connect(self.on_home_clicked)
+        nav_layout.addWidget(self.btn_home)
+
+        nav_layout.addWidget(QLabel("Send to Waypoint:"))
+        self.combo_waypoints = QComboBox()
+        self.combo_waypoints.addItems(self.waypoints.keys())
+        nav_layout.addWidget(self.combo_waypoints)
+
+        self.btn_send_wp = QPushButton("Deploy to Waypoint")
+        self.btn_send_wp.clicked.connect(self.on_waypoint_clicked)
+        nav_layout.addWidget(self.btn_send_wp)
+        
+        nav_layout.addStretch()
+        nav_group.setLayout(nav_layout)
+        main_layout.addWidget(nav_group)
+
+        # ---------------- RIGHT: Live Dashboard ----------------
+        dash_group = QGroupBox("Live Robot Diagnostics")
+        dash_layout = QHBoxLayout()
+        
+        mono_font = QFont("Courier")
+        mono_font.setStyleHint(QFont.StyleHint.Monospace)
+
+        # Column 1: Global Position
+        col1 = QVBoxLayout()
+        col1.addWidget(QLabel("<b>Global Position</b>"))
+        self.lbl_x = QLabel("X:   0.00 m")
+        self.lbl_y = QLabel("Y:   0.00 m")
+        self.lbl_yaw = QLabel("Yaw: 0.00 rad")
+        for lbl in [self.lbl_x, self.lbl_y, self.lbl_yaw]:
+            lbl.setFont(mono_font)
+            lbl.setMinimumWidth(120)
+            col1.addWidget(lbl)
+        col1.addStretch()
+
+        # Column 2: Chassis Velocity
+        col2 = QVBoxLayout()
+        col2.addWidget(QLabel("<b>Chassis Velocity</b>"))
+        self.lbl_vx = QLabel("Vx:  0.00 m/s")
+        self.lbl_vy = QLabel("Vy:  0.00 m/s")
+        self.lbl_omega = QLabel("Wz:  0.00 rad/s")
+        for lbl in [self.lbl_vx, self.lbl_vy, self.lbl_omega]:
+            lbl.setFont(mono_font)
+            lbl.setMinimumWidth(130)
+            col2.addWidget(lbl)
+        col2.addStretch()
+
+        # Column 3: Wheel Speeds
+        col3 = QVBoxLayout()
+        col3.addWidget(QLabel("<b>Wheel Speeds</b>"))
+        self.lbl_w_fl = QLabel("FL:  0.00")
+        self.lbl_w_fr = QLabel("FR:  0.00")
+        self.lbl_w_rl = QLabel("RL:  0.00")
+        self.lbl_w_rr = QLabel("RR:  0.00")
+        for lbl in [self.lbl_w_fl, self.lbl_w_fr, self.lbl_w_rl, self.lbl_w_rr]:
+            lbl.setFont(mono_font)
+            lbl.setMinimumWidth(90)
+            col3.addWidget(lbl)
+        col3.addStretch()
+
+        dash_layout.addLayout(col1)
+        dash_layout.addLayout(col2)
+        dash_layout.addLayout(col3)
+        dash_group.setLayout(dash_layout)
+        main_layout.addWidget(dash_group)
+
+    def update_pose_ui(self, x, y, yaw):
+        self.lbl_x.setText(f"X:  {x:5.2f} m")
+        self.lbl_y.setText(f"Y:  {y:5.2f} m")
+        self.lbl_yaw.setText(f"Yaw:{yaw:5.2f} rad")
+
+    def update_vel_ui(self, vx, vy, omega):
+        self.lbl_vx.setText(f"Vx: {vx:5.2f} m/s")
+        self.lbl_vy.setText(f"Vy: {vy:5.2f} m/s")
+        self.lbl_omega.setText(f"Wz: {omega:5.2f} rad/s")
+
+    def update_wheel_ui(self, speeds):
+        self.lbl_w_fl.setText(f"FL: {speeds[0]:5.2f}")
+        self.lbl_w_fr.setText(f"FR: {speeds[1]:5.2f}")
+        self.lbl_w_rl.setText(f"RL: {speeds[2]:5.2f}")
+        self.lbl_w_rr.setText(f"RR: {speeds[3]:5.2f}")
+
+    def update_nav_status(self, status_msg):
+        self.lbl_nav_status.setText(f"Status: {status_msg}")
+
+    def on_home_clicked(self):
+        self.ros_thread.send_nav2_goal(0.0, 0.0, 0.0)
+
+    def on_waypoint_clicked(self):
+        selection = self.combo_waypoints.currentText()
+        wp = self.waypoints.get(selection)
+        if wp is not None:
+            self.ros_thread.send_nav2_goal(wp[0], wp[1], wp[2])
+
+    def on_joystick_moved(self, x, y):
+        self.current_v_x = x * self.max_speed
+        self.current_v_y = y * self.max_speed
+        self.ros_thread.publish_twist(self.current_v_x, self.current_v_y, self.current_omega)
+
+    def on_yaw_changed(self, value):
+        self.current_omega = -(value / 100.0) * self.max_turn
+        self.ros_thread.publish_twist(self.current_v_x, self.current_v_y, self.current_omega)
+
+    def on_yaw_released(self):
+        self.yaw_slider.setValue(0)
+        self.current_omega = 0.0
+        self.ros_thread.publish_twist(self.current_v_x, self.current_v_y, self.current_omega)
+
+    def on_save_log_clicked(self):
+        if self.ros_thread.save_log():
+            self.lbl_nav_status.setText("Log saved to swerve_log.csv")
+
+    def on_save_map_clicked(self):
+        self.lbl_nav_status.setText("Saving map...")
+        QApplication.processEvents()
+        try:
+            map_dir = os.path.expanduser("~/ros2_ws/src/swerve_robot/swerve_navigation/maps")
+            os.makedirs(map_dir, exist_ok=True)
+            map_path = os.path.join(map_dir, "maze_map")
+            subprocess.run(
+                ['ros2', 'run', 'nav2_map_server', 'map_saver_cli', '-f', map_path],
+                check=True, capture_output=True, text=True
+            )
+            self.lbl_nav_status.setText(f"Map saved!")
+        except Exception:
+            self.lbl_nav_status.setText(f"Map save failed.")
+
+    def closeEvent(self, event):
+        self.ros_thread.stop()
+        self.ros_thread.wait()
+        event.accept()
+
+def main():
+    app = QApplication(sys.argv)
+    window = MainWindow()
+    window.show()
+    sys.exit(app.exec())
+
+if __name__ == '__main__':
+    main()
+```
+
+### File: swerve_gui/test/test_copyright.py
+```python
+# Copyright 2015 Open Source Robotics Foundation, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from ament_copyright.main import main
+import pytest
+
+
+# Remove the `skip` decorator once the source file(s) have a copyright header
+@pytest.mark.skip(reason='No copyright header has been placed in the generated source file.')
+@pytest.mark.copyright
+@pytest.mark.linter
+def test_copyright():
+    rc = main(argv=['.', 'test'])
+    assert rc == 0, 'Found errors'
+```
+
+### File: swerve_gui/test/test_flake8.py
+```python
+# Copyright 2017 Open Source Robotics Foundation, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from ament_flake8.main import main_with_errors
+import pytest
+
+
+@pytest.mark.flake8
+@pytest.mark.linter
+def test_flake8():
+    rc, errors = main_with_errors(argv=[])
+    assert rc == 0, \
+        'Found %d code style errors / warnings:\n' % len(errors) + \
+        '\n'.join(errors)
+```
+
+### File: swerve_gui/test/test_pep257.py
+```python
+# Copyright 2015 Open Source Robotics Foundation, Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+from ament_pep257.main import main
+import pytest
+
+
+@pytest.mark.linter
+@pytest.mark.pep257
+def test_pep257():
+    rc = main(argv=['.', 'test'])
+    assert rc == 0, 'Found code style errors / warnings'
+```
+
+### File: swerve_control/CMakeLists.txt
+```cmake
+# File: ~/ros2_ws/src/swerve_robot/swerve_control/CMakeLists.txt
+
+cmake_minimum_required(VERSION 3.8)
+project(swerve_control)
+
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
+
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_geometry_msgs REQUIRED)
+
+add_executable(swerve_kinematics src/swerve_kinematics.cpp)
+ament_target_dependencies(swerve_kinematics 
+  rclcpp 
+  geometry_msgs 
+  std_msgs 
+  sensor_msgs 
+  nav_msgs 
+  tf2 
+  tf2_geometry_msgs
+)
+
+install(TARGETS swerve_kinematics
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+install(DIRECTORY config
+  DESTINATION share/${PROJECT_NAME}
+)
+
+ament_package()
+```
+
+### File: swerve_control/package.xml
+```xml
+<?xml version="1.0"?>
+<!-- File: ~/ros2_ws/src/swerve_robot/swerve_control/package.xml -->
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>swerve_control</name>
+  <version>0.0.0</version>
+  <description>TODO: Package description</description>
+  <maintainer email="luis_glez2626@outlook.com">lags</maintainer>
+  <license>TODO: License declaration</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <depend>rclcpp</depend>
+  <depend>controller_interface</depend>
+  <depend>hardware_interface</depend>
+  <depend>pluginlib</depend>
+  <depend>nav_msgs</depend>
+  <depend>tf2</depend>
+  <depend>tf2_ros</depend>
+  <depend>tf2_geometry_msgs</depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
+```
+
+### File: swerve_control/src/swerve_kinematics.cpp
+```cpp
+// File: ~/ros2_ws/src/swerve_robot/swerve_control/src/swerve_kinematics.cpp
+
+#include <rclcpp/rclcpp.hpp>
+#include <geometry_msgs/msg/twist.hpp>
+#include <std_msgs/msg/float64_multi_array.hpp>
+#include <sensor_msgs/msg/joint_state.hpp>
+#include <nav_msgs/msg/odometry.hpp>
+#include <tf2/LinearMath/Quaternion.h>
+#include <cmath>
+#include <vector>
+#include <algorithm>
+
+class SwerveKinematics : public rclcpp::Node {
+public:
+    SwerveKinematics() : Node("swerve_kinematics"), odom_x_(0.0), odom_y_(0.0), odom_theta_(0.0) {
+        
+        this->declare_parameter("wheel_radius", 0.1);
+        this->declare_parameter("offset_x", 0.3);
+        this->declare_parameter("offset_y", 0.3);
+
+        wheel_radius_ = this->get_parameter("wheel_radius").as_double();
+        offset_x_ = this->get_parameter("offset_x").as_double();
+        offset_y_ = this->get_parameter("offset_y").as_double();
+
+        cmd_vel_sub_ = this->create_subscription<geometry_msgs::msg::Twist>(
+            "cmd_vel", 10, std::bind(&SwerveKinematics::cmdVelCallback, this, std::placeholders::_1));
+        
+        joint_state_sub_ = this->create_subscription<sensor_msgs::msg::JointState>(
+            "joint_states", 10, std::bind(&SwerveKinematics::jointStateCallback, this, std::placeholders::_1));
+
+        steering_pub_ = this->create_publisher<std_msgs::msg::Float64MultiArray>(
+            "steering_controller/commands", 10);
+        
+        velocity_pub_ = this->create_publisher<std_msgs::msg::Float64MultiArray>(
+            "velocity_controller/commands", 10);
+
+        odom_pub_ = this->create_publisher<nav_msgs::msg::Odometry>("odom", 10);
+
+        current_steering_angles_.resize(4, 0.0);
+        current_wheel_velocities_.resize(4, 0.0);
+        last_time_ = this->now();
+    }
+
+private:
+    void jointStateCallback(const sensor_msgs::msg::JointState::SharedPtr msg) {
+        std::vector<std::string> steer_joints = {
+            "fl_steering_joint", "fr_steering_joint", 
+            "rl_steering_joint", "rr_steering_joint"
+        };
+        std::vector<std::string> wheel_joints = {
+            "fl_wheel_joint", "fr_wheel_joint", 
+            "rl_wheel_joint", "rr_wheel_joint"
+        };
+
+        bool joints_updated = false;
+
+        for (size_t i = 0; i < 4; ++i) {
+            auto it_steer = std::find(msg->name.begin(), msg->name.end(), steer_joints[i]);
+            if (it_steer != msg->name.end()) {
+                current_steering_angles_[i] = msg->position[std::distance(msg->name.begin(), it_steer)];
+                joints_updated = true;
+            }
+
+            auto it_wheel = std::find(msg->name.begin(), msg->name.end(), wheel_joints[i]);
+            if (it_wheel != msg->name.end()) {
+                current_wheel_velocities_[i] = msg->velocity[std::distance(msg->name.begin(), it_wheel)];
+            }
+        }
+
+        if (joints_updated) {
+            calculateForwardKinematics();
+        }
+    }
+
+    void calculateForwardKinematics() {
+        rclcpp::Time current_time = this->now();
+        double dt = (current_time - last_time_).seconds();
+        if (dt <= 0.0) return;
+        last_time_ = current_time;
+
+        double vx_sum = 0.0, vy_sum = 0.0, omega_sum = 0.0;
+        
+        double x_pos[4] = {offset_x_, offset_x_, -offset_x_, -offset_x_};
+        double y_pos[4] = {offset_y_, -offset_y_, offset_y_, -offset_y_};
+
+        for (int i = 0; i < 4; ++i) {
+            double v_wheel = current_wheel_velocities_[i] * wheel_radius_;
+            double theta = current_steering_angles_[i];
+            
+            double v_xi = v_wheel * std::cos(theta);
+            double v_yi = v_wheel * std::sin(theta);
+
+            vx_sum += v_xi;
+            vy_sum += v_yi;
+
+            double r_sq = x_pos[i]*x_pos[i] + y_pos[i]*y_pos[i];
+            omega_sum += (v_yi * x_pos[i] - v_xi * y_pos[i]) / r_sq;
+        }
+
+        double robot_vx = vx_sum / 4.0;
+        double robot_vy = vy_sum / 4.0;
+        double robot_omega = omega_sum / 4.0;
+
+        double delta_x = (robot_vx * std::cos(odom_theta_) - robot_vy * std::sin(odom_theta_)) * dt;
+        double delta_y = (robot_vx * std::sin(odom_theta_) + robot_vy * std::cos(odom_theta_)) * dt;
+        double delta_theta = robot_omega * dt;
+
+        odom_x_ += delta_x;
+        odom_y_ += delta_y;
+        odom_theta_ += delta_theta;
+
+        nav_msgs::msg::Odometry odom_msg;
+        odom_msg.header.stamp = current_time;
+        odom_msg.header.frame_id = "odom";
+        odom_msg.child_frame_id = "base_footprint";
+
+        odom_msg.pose.pose.position.x = odom_x_;
+        odom_msg.pose.pose.position.y = odom_y_;
+        odom_msg.pose.pose.position.z = 0.0;
+
+        tf2::Quaternion q;
+        q.setRPY(0, 0, odom_theta_);
+        odom_msg.pose.pose.orientation.x = q.x();
+        odom_msg.pose.pose.orientation.y = q.y();
+        odom_msg.pose.pose.orientation.z = q.z();
+        odom_msg.pose.pose.orientation.w = q.w();
+
+        odom_msg.twist.twist.linear.x = robot_vx;
+        odom_msg.twist.twist.linear.y = robot_vy;
+        odom_msg.twist.twist.angular.z = robot_omega;
+
+        odom_pub_->publish(odom_msg);
+    }
+
+    void cmdVelCallback(const geometry_msgs::msg::Twist::SharedPtr msg) {
+        double vx = msg->linear.x;
+        double vy = msg->linear.y;
+        double omega = msg->angular.z;
+
+        double wx[4] = {vx - omega * offset_y_, vx - omega * (-offset_y_), vx - omega * offset_y_, vx - omega * (-offset_y_)};
+        double wy[4] = {vy + omega * offset_x_, vy + omega * offset_x_, vy + omega * (-offset_x_), vy + omega * (-offset_x_)};
+
+        std_msgs::msg::Float64MultiArray steering_msg;
+        std_msgs::msg::Float64MultiArray velocity_msg;
+
+        for (size_t i = 0; i < 4; ++i) {
+            double target_speed = std::hypot(wx[i], wy[i]);
+            double target_angle = std::atan2(wy[i], wx[i]);
+
+            if (std::abs(target_speed) < 0.01) {
+                steering_msg.data.push_back(current_steering_angles_[i]);
+                velocity_msg.data.push_back(0.0);
+            } else {
+                optimizeModule(target_angle, target_speed, current_steering_angles_[i]);
+                target_speed = target_speed / wheel_radius_;
+                steering_msg.data.push_back(target_angle);
+                velocity_msg.data.push_back(target_speed);
+            }
+        }
+
+        steering_pub_->publish(steering_msg);
+        velocity_pub_->publish(velocity_msg);
+    }
+
+    void optimizeModule(double &target_angle, double &target_speed, double current_angle) {
+        double error = target_angle - current_angle;
+        error = std::atan2(std::sin(error), std::cos(error));
+
+        if (std::abs(error) > (M_PI / 2.0 + 0.1)) {
+            target_speed = -target_speed;
+            error -= std::copysign(M_PI, error);
+        }
+        
+        target_angle = current_angle + error;
+        target_speed = target_speed * std::cos(error);
+    }
+
+    rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_sub_;
+    rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_sub_;
+    rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr steering_pub_;
+    rclcpp::Publisher<std_msgs::msg::Float64MultiArray>::SharedPtr velocity_pub_;
+    rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr odom_pub_;
+
+    double wheel_radius_;
+    double offset_x_;
+    double offset_y_;
+    
+    std::vector<double> current_steering_angles_;
+    std::vector<double> current_wheel_velocities_;
+    
+    rclcpp::Time last_time_;
+    double odom_x_, odom_y_, odom_theta_;
+};
+
+int main(int argc, char **argv) {
+    rclcpp::init(argc, argv);
+    rclcpp::spin(std::make_shared<SwerveKinematics>());
+    rclcpp::shutdown();
+    return 0;
+}
+```
+
+### File: swerve_control/config/swerve_controllers.yaml
+```yaml
+# File: ~/ros2_ws/src/swerve_robot/swerve_control/config/swerve_controllers.yaml
+
+controller_manager:
+  ros__parameters:
+    update_rate: 50
+
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+
+    steering_controller:
+      type: position_controllers/JointGroupPositionController
+
+    velocity_controller:
+      type: velocity_controllers/JointGroupVelocityController
+
+steering_controller:
+  ros__parameters:
+    joints:
+      - fl_steering_joint
+      - fr_steering_joint
+      - rl_steering_joint
+      - rr_steering_joint
+
+velocity_controller:
+  ros__parameters:
+    joints:
+      - fl_wheel_joint
+      - fr_wheel_joint
+      - rl_wheel_joint
+      - rr_wheel_joint
+```
+
+### File: swerve_navigation/CMakeLists.txt
+```cmake
+# File: ~/ros2_ws/src/swerve_robot/swerve_navigation/CMakeLists.txt
+
+cmake_minimum_required(VERSION 3.8)
+project(swerve_navigation)
+
+if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+  add_compile_options(-Wall -Wextra -Wpedantic)
+endif()
+
+find_package(ament_cmake REQUIRED)
+
+install(DIRECTORY
+  config
+  launch
+  maps
+  DESTINATION share/${PROJECT_NAME}
+)
+
+if(BUILD_TESTING)
+  find_package(ament_lint_auto REQUIRED)
+  set(ament_cmake_copyright_FOUND TRUE)
+  set(ament_cmake_cpplint_FOUND TRUE)
+  ament_lint_auto_find_test_dependencies()
+endif()
+
+ament_package()
+```
+
+### File: swerve_navigation/package.xml
+```xml
+<?xml version="1.0"?>
+<!-- File: ~/ros2_ws/src/swerve_robot/swerve_navigation/package.xml -->
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>swerve_navigation</name>
+  <version>0.0.0</version>
+  <description>Navigation stack and SLAM configuration for the swerve robot</description>
+  <maintainer email="luis_glez2626@outlook.com">lags</maintainer>
+  <license>TODO: License declaration</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+
+  <exec_depend>slam_toolbox</exec_depend>
+  <exec_depend>robot_localization</exec_depend>
+  <exec_depend>nav2_bringup</exec_depend>
+
+  <test_depend>ament_lint_auto</test_depend>
+  <test_depend>ament_lint_common</test_depend>
+
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
+</package>
+```
+
+### File: swerve_navigation/maps_3m_bueno/maze_map.yaml
+```yaml
+image: maze_map.pgm
+mode: trinary
+resolution: 0.05
+origin: [-13.6, -13.5, 0]
+negate: 0
+occupied_thresh: 0.65
+free_thresh: 0.25
+```
+
+### File: swerve_navigation/maps/maze_map.yaml
+```yaml
+image: maze_map.pgm
+mode: trinary
+resolution: 0.05
+origin: [-13.6, -13.5, 0]
+negate: 0
+occupied_thresh: 0.65
+free_thresh: 0.25
+```
+
+### File: swerve_navigation/maps_3m/maze_map.yaml
+```yaml
+image: maze_map.pgm
+mode: trinary
+resolution: 0.05
+origin: [-13.3, -13.6, 0]
+negate: 0
+occupied_thresh: 0.65
+free_thresh: 0.25
+```
+
+### File: swerve_navigation/maps2/maze_map.yaml
+```yaml
+image: maze_map.pgm
+mode: trinary
+resolution: 0.05
+origin: [-9.09, -9.08, 0]
+negate: 0
+occupied_thresh: 0.65
+free_thresh: 0.25
+```
+
+### File: swerve_navigation/map_RRT_generated/maze_map.yaml
+```yaml
+image: maze_map.pgm
+mode: trinary
+resolution: 0.05
+origin: [-13.7, -13.6, 0]
+negate: 0
+occupied_thresh: 0.65
+free_thresh: 0.25
+```
+
+### File: swerve_navigation/launch/navigation.launch.py
+```python
+# File: ~/ros2_ws/src/swerve_robot/swerve_navigation/launch/navigation.launch.py
+
+import os
+from launch import LaunchDescription
+from launch.actions import IncludeLaunchDescription
+from launch_ros.actions import Node
+from launch.launch_description_sources import PythonLaunchDescriptionSource
+from launch.substitutions import PathJoinSubstitution
+from launch_ros.substitutions import FindPackageShare
+
+def generate_launch_description():
+    nav2_bringup_pkg = FindPackageShare('nav2_bringup')
+    swerve_nav_pkg = FindPackageShare('swerve_navigation')
+
+    map_file = PathJoinSubstitution([swerve_nav_pkg, 'maps', 'maze_map.yaml'])
+    params_file = PathJoinSubstitution([swerve_nav_pkg, 'config', 'nav2_params.yaml'])
+    ekf_config = PathJoinSubstitution([swerve_nav_pkg, 'config', 'ekf.yaml'])
+
+    nav2_launch = IncludeLaunchDescription(
+        PythonLaunchDescriptionSource(
+            PathJoinSubstitution([nav2_bringup_pkg, 'launch', 'bringup_launch.py'])
+        ),
+        launch_arguments={
+            'map': map_file,
+            'params_file': params_file,
+            'use_sim_time': 'true'
+        }.items()
+    )
+
+    ekf_node = Node(
+        package='robot_localization',
+        executable='ekf_node',
+        name='ekf_filter_node',
+        output='screen',
+        parameters=[
+            ekf_config,
+            {'use_sim_time': True}
+        ]
+    )
+
+    return LaunchDescription([nav2_launch, ekf_node])
+```
+
+### File: swerve_navigation/launch/slam.launch.py
+```python
+# File: ~/ros2_ws/src/swerve_robot/swerve_navigation/launch/slam.launch.py
+
+from launch import LaunchDescription
+from launch_ros.actions import Node
+from launch.substitutions import PathJoinSubstitution
+from launch_ros.substitutions import FindPackageShare
+
+def generate_launch_description():
+    pkg_nav = FindPackageShare('swerve_navigation')
+    
+    slam_config = PathJoinSubstitution([pkg_nav, 'config', 'slam_toolbox.yaml'])
+    ekf_config = PathJoinSubstitution([pkg_nav, 'config', 'ekf.yaml'])
+
+    slam_node = Node(
+        package='slam_toolbox',
+        executable='async_slam_toolbox_node',
+        name='slam_toolbox',
+        output='screen',
+        parameters=[
+            slam_config,
+            {'use_sim_time': True}
+        ]
+    )
+
+    ekf_node = Node(
+        package='robot_localization',
+        executable='ekf_node',
+        name='ekf_filter_node',
+        output='screen',
+        parameters=[
+            ekf_config,
+            {'use_sim_time': True}
+        ]
+    )
+
+    return LaunchDescription([
+        slam_node,
+        ekf_node
+    ])
+```
+
+### File: swerve_navigation/config/ekf.yaml
+```yaml
+# File: ~/ros2_ws/src/swerve_robot/swerve_navigation/config/ekf.yaml
+
+ekf_filter_node:
+  ros__parameters:
+    use_sim_time: true
+    frequency: 30.0
+    two_d_mode: true
+    publish_tf: true
+    map_frame: map
+    odom_frame: odom
+    base_link_frame: base_footprint
+    world_frame: odom
+
+    odom0: /odom
+    odom0_config: [false, false, false,
+                   false, false, false,
+                   true,  true,  false,
+                   false, false, true,
+                   false, false, false]
+    
+    imu0: /imu/data
+    imu0_config: [false, false, false,
+                  false, false, true,
+                  false, false, false,
+                  false, false, true,
+                  false, false, false]
+```
+
+### File: swerve_navigation/config/nav2_params.yaml
+```yaml
+# File: ~/ros2_ws/src/swerve_robot/swerve_navigation/config/nav2_params.yaml
+
+amcl:
+  ros__parameters:
+    use_sim_time: True
+    alpha1: 0.2
+    alpha2: 0.2
+    alpha3: 0.2
+    alpha4: 0.2
+    alpha5: 0.2
+    base_frame_id: "base_footprint"
+    global_frame_id: "map"
+    odom_frame_id: "odom"
+    scan_topic: scan
+    max_particles: 2000
+    min_particles: 500
+    pf_err: 0.05
+    pf_z: 0.99
+    robot_model_type: "nav2_amcl::OmniMotionModel"
+    set_initial_pose: True
+    initial_pose:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      yaw: 0.0
+
+bt_navigator:
+  ros__parameters:
+    use_sim_time: True
+    global_frame: map
+    robot_base_frame: base_footprint
+    odom_topic: /odom
+    default_bt_xml_filename: "navigate_to_pose_w_replanning_and_recovery.xml"
+
+controller_server:
+  ros__parameters:
+    use_sim_time: True
+    controller_frequency: 10.0
+    min_x_velocity_threshold: 0.001
+    min_y_velocity_threshold: 0.001
+    min_theta_velocity_threshold: 0.001
+    progress_checker_plugin: "progress_checker"
+    goal_checker_plugins: ["general_goal_checker"]
+    controller_plugins: ["FollowPath"]
+
+    progress_checker:
+      plugin: "nav2_controller::SimpleProgressChecker"
+      required_movement_radius: 0.5
+      movement_time_allowance: 10.0
+    general_goal_checker:
+      stateful: True
+      plugin: "nav2_controller::SimpleGoalChecker"
+      xy_goal_tolerance: 0.25
+      yaw_goal_tolerance: 0.25
+    FollowPath:
+      plugin: "dwb_core::DWBLocalPlanner"
+      debug_trajectory_details: True
+      min_vel_x: -0.35
+      max_vel_x: 0.35
+      min_vel_y: -0.35
+      max_vel_y: 0.35
+      max_vel_theta: 0.8
+      min_speed_xy: 0.0
+      max_speed_xy: 0.35
+      min_speed_theta: 0.0
+      
+      acc_lim_x: 0.5
+      acc_lim_y: 0.5
+      acc_lim_theta: 1.0
+      decel_lim_x: -0.5
+      decel_lim_y: -0.5
+      decel_lim_theta: -1.0
+      
+      vx_samples: 10
+      vy_samples: 10
+      vtheta_samples: 15
+      sim_time: 1.7
+      linear_granularity: 0.05
+      angular_granularity: 0.025
+      transform_tolerance: 0.2
+      xy_goal_tolerance: 0.25
+      trans_stopped_velocity: 0.25
+      short_circuit_trajectory_evaluation: True
+      stateful: True
+      critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign", "PathAlign", "PathDist", "GoalDist"]
+      
+      BaseObstacle.scale: 0.1
+      PathAlign.scale: 32.0
+      PathAlign.forward_point_distance: 0.1
+      GoalAlign.scale: 24.0
+      GoalAlign.forward_point_distance: 0.1
+      PathDist.scale: 32.0
+      GoalDist.scale: 24.0
+      RotateToGoal.scale: 32.0
+      RotateToGoal.slowing_factor: 5.0
+      RotateToGoal.lookahead_time: -1.0
+
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      update_frequency: 5.0
+      publish_frequency: 2.0
+      global_frame: odom
+      robot_base_frame: base_footprint
+      use_sim_time: True
+      rolling_window: true
+      width: 6
+      height: 6
+      resolution: 0.05
+      robot_radius: 0.42
+      plugins: ["obstacle_layer", "inflation_layer"]
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: True
+        observation_sources: scan
+        scan:
+          topic: /scan
+          max_obstacle_height: 2.0
+          clearing: True
+          marking: True
+          data_type: "LaserScan"
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        cost_scaling_factor: 5.0
+        inflation_radius: 0.62
+
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      update_frequency: 1.0
+      publish_frequency: 1.0
+      global_frame: map
+      robot_base_frame: base_footprint
+      use_sim_time: True
+      robot_radius: 0.42
+      resolution: 0.05
+      track_unknown_space: true
+      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: True
+        observation_sources: scan
+        scan:
+          topic: /scan
+          max_obstacle_height: 2.0
+          clearing: True
+          marking: True
+          data_type: "LaserScan"
+      static_layer:
+        plugin: "nav2_costmap_2d::StaticLayer"
+        map_subscribe_transient_local: True
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        cost_scaling_factor: 5.0
+        inflation_radius: 0.62
+
+map_server:
+  ros__parameters:
+    use_sim_time: True
+    yaml_filename: "maze_map.yaml"
+
+planner_server:
+  ros__parameters:
+    expected_planner_frequency: 20.0
+    use_sim_time: True
+    planner_plugins: ["GridBased"]
+    GridBased:
+      plugin: "nav2_navfn_planner/NavfnPlanner"
+      tolerance: 0.5
+      use_astar: false
+      allow_unknown: true
+
+behavior_server:
+  ros__parameters:
+    costmap_topic: local_costmap/costmap_raw
+    footprint_topic: local_costmap/published_footprint
+    cycle_frequency: 10.0
+    behavior_plugins: ["spin", "backup", "drive_on_heading", "wait"]
+    spin:
+      plugin: "nav2_behaviors/Spin"
+    backup:
+      plugin: "nav2_behaviors/BackUp"
+    drive_on_heading:
+      plugin: "nav2_behaviors/DriveOnHeading"
+    wait:
+      plugin: "nav2_behaviors/Wait"
+    global_frame: odom
+    robot_base_frame: base_footprint
+    transform_tolerance: 0.1
+    use_sim_time: true
+    simulate_ahead_time: 2.0
+    max_rotational_vel: 0.5
+    min_rotational_vel: 0.2
+    rotational_acc_lim: 1.5
+
+velocity_smoother:
+  ros__parameters:
+    use_sim_time: True
+    smoothing_frequency: 10.0
+    scale_velocities: False
+    feedback: "OPEN_LOOP"
+    max_velocity: [0.35, 0.35, 0.8]
+    min_velocity: [-0.35, -0.35, -0.8]
+    max_accel: [0.5, 0.5, 1.0]
+    max_decel: [-0.5, -0.5, -1.0]
+    odom_topic: "odom"
+    odom_duration: 0.1
+    deadband_velocity: [0.0, 0.0, 0.0]
+    velocity_timeout: 1.0
+```
+
+### File: swerve_navigation/config/slam_toolbox.yaml
+```yaml
+# File: ~/ros2_ws/src/swerve_robot/swerve_navigation/config/slam_toolbox.yaml
+
+slam_toolbox:
+  ros__parameters:
+    solver_plugin: solver_plugins::CeresSolver
+    ceres_linear_solver: SPARSE_NORMAL_CHOLESKY
+    ceres_preconditioner: SCHUR_JACOBI
+    ceres_trust_region_strategy: LEVENBERG_MARQUARDT
+    ceres_dogleg_type: TRADITIONAL_DOGLEG
+    ceres_loss_function: None
+
+    odom_frame: odom
+    map_frame: map
+    base_frame: base_footprint
+    scan_topic: /scan
+    mode: mapping
+
+    map_resolution: 0.05
+    map_update_interval: 1.0
+    resolution: 0.05
+    
+    max_laser_range: 25.0
+    minimum_laser_range: 0.45
+    minimum_time_interval: 0.2
+    transform_timeout: 0.2
+    tf_buffer_duration: 10.0
+    stack_size_to_use: 40000000
+    
+    use_scan_matching: true
+    use_scan_barycenter: true
+    minimum_travel_distance: 0.3
+    minimum_travel_heading: 0.15
+    scan_buffer_size: 20
+    scan_buffer_maximum_scan_distance: 25.0
+    
+    link_match_minimum_response_fine: 0.45
+    link_scan_maximum_distance: 1.5
+    
+    distance_variance_penalty: 0.3
+    angle_variance_penalty: 0.7
+    
+    correlation_search_space_dimension: 0.3
+    correlation_search_space_resolution: 0.01
+    correlation_search_space_smear_deviation: 0.05
+```
+

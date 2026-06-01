@@ -1,0 +1,22 @@
+ROS 2 Build and Install artifacts
+
+build/
+install/
+log/
+
+Python artifacts
+
+pycache/
+*.pyc
+*.pyo
+*.pyd
+
+OS generated files
+
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

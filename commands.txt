@@ -1,0 +1,111 @@
+Commands and Procedures for Swerve Robot Project
+
+================================================================================
+0. Hardware Rendering Setup (REQUIRED FOR ALL SIMULATIONS)
+
+Force your terminal to use the NVIDIA GPU before launching Gazebo or RViz to prevent crashes and UI artifacts. Run these in Terminal 1 before bringup:
+export __NV_PRIME_RENDER_OFFLOAD=1
+export __GLX_VENDOR_LIBRARY_NAME=nvidia
+
+================================================================================
+
+Autonomous Exploration (RRT Mapping)
+================================================================================
+Use this mode to drop the robot into an unknown maze and let it map it completely autonomously.
+
+Terminal 1 (Simulation & Hardware Rendering):
+export __NV_PRIME_RENDER_OFFLOAD=1
+export __GLX_VENDOR_LIBRARY_NAME=nvidia
+ros2 launch swerve_bringup sim_bringup.launch.py
+
+Terminal 2 (SLAM & Localization):
+ros2 launch swerve_navigation slam.launch.py
+
+Terminal 3 (Nav2 Planners and Controllers):
+ros2 launch nav2_bringup navigation_launch.py use_sim_time:=True params_file:=install/swerve_navigation/share/swerve_navigation/config/nav2_params.yaml
+
+Terminal 4 (Operator Dashboard):
+ros2 run swerve_gui gui
+
+Terminal 5 (RRT Exploration Node):
+ros2 run swerve_exploration rrt_node
+
+Procedure:
+
+Wait for Terminal 5 to print "Exploration physically complete".
+
+The RRT node will deactivate itself. (You can also safely press Ctrl+C in Terminal 5).
+
+If there is a tight corner it refused to enter, use the Virtual Joystick in the GUI to manually drive it into that corner to finish the map.
+
+Save the map.
+
+================================================================================
+2. Manual Mapping (Teleoperation)
+
+Use this mode if you want to map the environment entirely by yourself using the GUI joystick.
+
+Terminal 1 (Simulation & Hardware Rendering):
+export __NV_PRIME_RENDER_OFFLOAD=1
+export __GLX_VENDOR_LIBRARY_NAME=nvidia
+ros2 launch swerve_bringup sim_bringup.launch.py
+
+Terminal 2 (SLAM & Localization):
+ros2 launch swerve_navigation slam.launch.py
+
+Terminal 3 (Operator Dashboard):
+ros2 run swerve_gui gui
+
+Procedure:
+
+Drive the robot around using the GUI virtual joystick.
+
+Save the map using the GUI button or the CLI tools below.
+
+================================================================================
+3. Pure Navigation (Using a Pre-built Map)
+
+Use this mode to run missions and send waypoints via the GUI on a map you have already saved.
+
+Terminal 1 (Simulation & Hardware Rendering):
+export __NV_PRIME_RENDER_OFFLOAD=1
+export __GLX_VENDOR_LIBRARY_NAME=nvidia
+ros2 launch swerve_bringup sim_bringup.launch.py
+
+Terminal 2 (Navigation Stack with AMCL):
+ros2 launch swerve_navigation navigation.launch.py
+
+Terminal 3 (Operator Dashboard):
+ros2 run swerve_gui gui
+
+Procedure:
+
+In RViz, use the "2D Pose Estimate" tool to set the robot's initial location on the map.
+
+Once localized, use the GUI Dropdown to select a predefined waypoint, or click the "SEND HOME" button.
+
+You can also use the "2D Goal Pose" tool in RViz to send custom coordinates.
+
+================================================================================
+4. Utility Commands
+
+Save Map to Custom Directory (RRT Generated):
+mkdir -p ~/ros2_ws/src/swerve_robot/swerve_navigation/map_RRT_generated
+ros2 run nav2_map_server map_saver_cli -f ~/ros2_ws/src/swerve_robot/swerve_navigation/map_RRT_generated/maze_map
+
+Generate the World SDF from JSON:
+python3 json_to_sdf.py --hall_width 3.0 --wall_height 1.0 --wall_thickness 0.1
+
+Test and View SDF World in Gazebo (No Robot):
+ign gazebo maze.sdf
+
+Export Workspace Context (For Documentation/LLM):
+python3 export_context.py
+
+RViz Display Setup (If loading manually):
+Fixed Frame: map
+Add -> MAP (topic: /map)
+Add -> LaserScan (topic: /scan)
+Add -> RobotModel
+Add -> TF
+Add -> Marker (topic: /rrt_tree)

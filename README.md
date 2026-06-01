@@ -1,66 +1,102 @@
-Swerve Mobile Robot
+# 🤖 Swerve Agrobot: Autonomous Navigation & Exploration Stack
 
-A complete ROS 2 Humble software stack for a 4-wheel swerve drive mobile robot. This project features custom kinematics, autonomous frontier exploration, and a PyQt6 operator dashboard. The simulation runs in Gazebo Fortress.
+A comprehensive ROS 2 Humble stack for an 8-motor independent swerve drive robot. Engineered for high-precision holonomic navigation in constrained environments, featuring C++ kinematics, RRT-based exploration, and a PyQt6 operator dashboard.
 
-Core Features
+## 📦 Package Ecosystem (7 Packages)
 
-Swerve Kinematics and Control
-Custom C++ kinematics node solving forward and inverse kinematics for 4 independently steered and driven wheels. Features include shortest path angle optimization and cosine scaled velocity limits to prevent arcing during rapid directional changes.
+*   **`swerve_bringup`**: Orchestrates system-wide launches, hardware bridges, and unified parameter loading.
+*   **`swerve_control`**: C++ Kinematics core. Implements IK/FK with shortest-path optimization and cosine velocity scaling.
+*   **`swerve_description`**: URDF/Xacro definitions. Features a 0.42m cylindrical chassis to maximize Lidar visibility.
+*   **`swerve_exploration`**: Frontier detection via a custom C++ RRT implementation for fully autonomous mapping.
+*   **`swerve_gazebo`**: Manages the Ignition Fortress environment and dynamic world generation tools.
+*   **`swerve_gui`**: PyQt6 Operator Dashboard featuring a **Virtual Joystick** for real-time holonomic control.
+*   **`swerve_navigation`**: Optimized Nav2 stack, SLAM Toolbox, and EKF-based odometry fusion.
 
-Autonomous RRT Exploration
-A standalone C++ node that completely automates the mapping process. It reads the live SLAM occupancy grid, computes Rapidly exploring Random Trees to identify frontiers, and commands the Nav2 Action Server. It features strict obstacle inflation radius checks and an asynchronous watchdog to blacklist unreachable local minima.
+## 🚀 Technical Highlights
 
-Tight Space Navigation
-Highly tuned Navigation 2 stack specifically configured to allow holonomic movement with exactly 20cm clearance margins. Uses the DWB Local Planner with scaled acceleration limits to eliminate dynamic odometry drift.
+*   **Holonomic Precision**: Independent 4-module control for crab, snake, and zero-turn maneuvers.
+*   **20cm Wall Constraint**: Specifically tuned Nav2 costmaps (0.62m inflation) for close-proximity interactions.
+*   **Autonomous Frontier Mapping**: RRT exploration with a watchdog system to prevent local minima traps.
+*   **Precision EKF Fusion**: Eliminates kinematic drift by fusing wheel odometry with high-frequency IMU data.
+*   **Operator UI**: Multi-threaded dashboard with live diagnostics and manual override capability.
 
-Live Operator Dashboard
-A multithreaded PyQt6 graphical interface integrating ROS 2 Action Clients and TF2 listeners. Allows for manual holonomic teleoperation via a virtual joystick, predefined waypoint deployments, and live diagnostics of global coordinates and individual wheel speeds.
+## 🏗️ World Generation from JSON
 
-Dynamic SDF World Generation
-Python tooling to convert JSON architectural layouts directly into scaled XML Gazebo SDF environments.
+Located in `swerve_gazebo/worlds/`, the `json_to_sdf.py` tool converts architectural JSON coordinates into native, high-performance SDF worlds for Gazebo Fortress.
 
-System Requirements
+**Supported Parameters:**
+*   `--input`: Path to the input JSON file.
+*   `--output`: Name of the generated `.sdf` file.
+*   `--hall_width`: Distance between wall centers (m).
+*   `--wall_height`: Physical height of wall assets (m).
+*   `--wall_thickness`: Collision and visual thickness (m).
 
-Ubuntu 22.04 LTS
+```bash
+python3 json_to_sdf.py --input maze.json --output maze.sdf --hall_width 3.0 --wall_height 1.5
+```
 
-ROS 2 Humble
+## 🛠️ System Requirements
 
-Gazebo Fortress
+*   **OS**: Ubuntu 22.04 LTS
+*   **ROS Version**: ROS 2 Humble
+*   **Simulator**: Gazebo Fortress (v6.16+)
+*   **GPU**: NVIDIA Dedicated GPU (Highly recommended for RViz/Gazebo stability)
 
-Python Dependencies: PyQt6
+## 🎮 Usage Instructions
 
-Usage Modes
-
-The system operates in three distinct modes depending on the mission requirement. Ensure hardware rendering is enabled in your primary terminal before launching the simulation.
-
-Export NVIDIA variables
+### 0. Graphics Initialization (CRITICAL)
+To prevent UI artifacts and Gazebo crashes on hybrid-graphics laptops, always export these variables:
+```bash
 export __NV_PRIME_RENDER_OFFLOAD=1
 export __GLX_VENDOR_LIBRARY_NAME=nvidia
+```
 
-Mode 1: Autonomous Exploration
+### Mode 1: Autonomous Exploration (Mapping)
+Automatically map an unknown environment using RRT frontiers.
+1. **Simulation**: `ros2 launch swerve_bringup sim_bringup.launch.py`
+2. **SLAM**: `ros2 launch swerve_navigation slam.launch.py`
+3. **NavStack**: `ros2 launch nav2_bringup navigation_launch.py use_sim_time:=True params_file:=install/swerve_navigation/share/swerve_navigation/config/nav2_params.yaml`
+4. **Exploration**: `ros2 run swerve_exploration rrt_node`
+5. **Dashboard**: `ros2 run swerve_gui gui`
 
-ros2 launch swerve_bringup sim_bringup.launch.py
+**Saving the map:** Wait for the RRT node to print `Exploration physically complete`. If it leaves a tight corner unmapped, use the GUI Joystick to drive the robot into the corner. Once satisfied, open a new terminal and save the map to a custom directory to avoid overwriting your default map:
+```bash
+mkdir -p ~/ros2_ws/src/swerve_robot/swerve_navigation/map_RRT_generated
+ros2 run nav2_map_server map_saver_cli -f ~/ros2_ws/src/swerve_robot/swerve_navigation/map_RRT_generated/maze_map
 
-ros2 launch swerve_navigation slam.launch.py
+```
 
-ros2 launch nav2_bringup navigation_launch.py use_sim_time:=True params_file:=install/swerve_navigation/share/swerve_navigation/config/nav2_params.yaml
 
-ros2 run swerve_gui gui
+### Mode 2: Manual Teleoperation (Mapping)
+Map a new environment entirely by hand without autonomous intervention.
+1. **Simulation**: `ros2 launch swerve_bringup sim_bringup.launch.py`
+2. **SLAM**: `ros2 launch swerve_navigation slam.launch.py`
+3. **Dashboard**: `ros2 run swerve_gui gui`
 
-ros2 run swerve_exploration rrt_node
+**PROCEDURE:**
+Use the Virtual Joystick in the Operator Dashboard to drive the robot through the maze until the map is fully generated in RViz. Click the Save SLAM Map button in the GUI to automatically save the map to
+`swerve_navigation/maps/maze_map`.
 
-Mode 2: Manual Mapping
+### Mode 3: Pure Navigation (Pre-built Map)
+Run navigation missions on a map you have already saved. SLAM is disabled.
+1. **Simulation**: `ros2 launch swerve_bringup sim_bringup.launch.py`
+2. **Navigation**: `ros2 launch swerve_navigation navigation.launch.py`
+3. **Dashboard**: `ros2 run swerve_gui gui`
 
-ros2 launch swerve_bringup sim_bringup.launch.py
+**PROCEDURE:**
+First, use the 2D Pose Estimate tool in RViz to tell AMCL where the robot is starting. Once localized, use the GUI's Deploy to Waypoint dropdown, click SEND HOME, or use the 2D Goal Pose tool in RViz to command the robot.
 
-ros2 launch swerve_navigation slam.launch.py
 
-ros2 run swerve_gui gui
 
-Mode 3: Pure Navigation
+## 📈 Implementation Details
 
-ros2 launch swerve_bringup sim_bringup.launch.py
+### Swerve Optimization
+The `swerve_control` node implements:
+*   **Shortest Path Logic**: Prevents modules from rotating more than 90° by inverting wheel velocity when necessary.
+*   **Anti-Arcing**: Uses cosine scaling of velocity commands during steering transitions to ensure the robot maintains its trajectory heading.
+*   **Hysteresis**: Prevents "jitter" when the robot is nearly stationary by maintaining the last known steering angle for commands under 0.01 m/s.
 
-ros2 launch swerve_navigation navigation.launch.py
-
-ros2 run swerve_gui gui
+### Navigation Tuning
+The `nav2_params.yaml` is tuned for holonomic swerve dynamics:
+*   **Planner**: `NavfnPlanner` with A* disabled for faster global path recalculation.
+*   **Controller**: `DWBLocalPlanner` with specialized critics (`PathAlign`, `GoalAlign`, `BaseObstacle`) to handle the circular chassis profile.

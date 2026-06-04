@@ -13,14 +13,48 @@
 #include <cmath>
 #include <chrono>
 #include <utility>
+#include <mutex>
+#include <nanoflann.hpp>
 
 using namespace std::chrono_literals;
 
+// --- Data Structures for RRT and KD-Tree ---
 struct RRTNode {
     double x;
     double y;
     int parent_idx;
 };
+
+// Adapter required by nanoflann to read our RRTNode structure
+struct PointCloud {
+    std::vector<RRTNode> pts;
+    inline size_t kdtree_get_point_count() const { return pts.size(); }
+    inline double kdtree_get_pt(const size_t idx, const size_t dim) const {
+        if (dim == 0) return pts[idx].x;
+        else return pts[idx].y;
+    }
+    template <class BBOX>
+    bool kdtree_get_bbox(BBOX& /* bb */) const { return false; }
+};
+
+// Dynamic KD-Tree type definition
+typedef nanoflann::KDTreeSingleIndexDynamicAdaptor<
+    nanoflann::L2_Simple_Adaptor<double, PointCloud>,
+    PointCloud, 2 /* dimensionality */
+> KDTreeDynamic;
+
+struct BlacklistPoint {
+    double x;
+    double y;
+    rclcpp::Time timestamp;
+};
+
+struct FrontierCandidate {
+    double x;
+    double y;
+    double distance;
+};
+
 
 class RRTExploration : public rclcpp::Node {
 public:
@@ -37,27 +71,46 @@ public:
             
         tree_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("rrt_tree", 10);
 
+        // Initialize KD-Tree
+        kd_tree_ = std::make_unique<KDTreeDynamic>(2, cloud_, nanoflann::KDTreeSingleIndexAdaptorParams(10));
+
         timer_ = this->create_wall_timer(
             2000ms, std::bind(&RRTExploration::explorationLoop, this));
             
-        RCLCPP_INFO(this->get_logger(), "RRT Exploration node started.");
+        RCLCPP_INFO(this->get_logger(), "RRT Exploration node started with dynamic KD-Tree enabled.");
     }
 
 private:
     void mapCallback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg) {
+        std::lock_guard<std::mutex> lock(map_mutex_);
         current_map_ = msg;
     }
 
     void explorationLoop() {
-        if (!current_map_ || exploration_finished_) {
+        nav_msgs::msg::OccupancyGrid::SharedPtr active_map;
+        {
+            // Safely grab a reference to the latest map without blocking callbacks
+            std::lock_guard<std::mutex> lock(map_mutex_);
+            active_map = current_map_;
+        }
+
+        if (!active_map || exploration_finished_) {
             return;
         }
 
+        auto now_time = this->now();
+
+        // Expire old blacklist entries (60 second decay)
+        blacklist_.erase(std::remove_if(blacklist_.begin(), blacklist_.end(),
+            [&](const BlacklistPoint& pt) {
+                return (now_time - pt.timestamp).seconds() > 60.0;
+            }), blacklist_.end());
+
         if (is_exploring_) {
-            if ((this->now() - goal_start_time_).seconds() > 40.0) {
-                RCLCPP_WARN(this->get_logger(), "Watchdog triggered: Nav2 is stuck. Force canceling and blacklisting.");
+            if ((now_time - goal_start_time_).seconds() > 40.0) {
+                RCLCPP_WARN(this->get_logger(), "Watchdog triggered: Nav2 is stuck. Blacklisting and recalculating.");
                 nav_client_->async_cancel_all_goals();
-                blacklist_.push_back({current_goal_.pose.position.x, current_goal_.pose.position.y});
+                blacklist_.push_back({current_goal_.pose.position.x, current_goal_.pose.position.y, now_time});
                 is_exploring_ = false;
             }
             return;
@@ -75,116 +128,165 @@ private:
         double start_y = transform.transform.translation.y;
 
         geometry_msgs::msg::PoseStamped frontier_goal;
-        if (findFrontierRRT(start_x, start_y, frontier_goal)) {
+        if (findFrontierRRT(start_x, start_y, frontier_goal, active_map)) {
             sendNavGoal(frontier_goal);
         } else {
-            // Lock the node. Once no frontiers are found, hand control permanently to the operator.
             exploration_finished_ = true;
             timer_->cancel();
-            RCLCPP_INFO(this->get_logger(), "Exploration physically complete. Autonomous RRT timer deactivated. You may now safely send GUI waypoints.");
+            RCLCPP_INFO(this->get_logger(), "Exploration physically complete. Autonomous RRT timer deactivated.");
         }
     }
 
-    bool findFrontierRRT(double start_x, double start_y, geometry_msgs::msg::PoseStamped& goal) {
-        std::vector<RRTNode> tree;
-        tree.push_back({start_x, start_y, -1});
+    bool findFrontierRRT(double start_x, double start_y, geometry_msgs::msg::PoseStamped& goal, const nav_msgs::msg::OccupancyGrid::SharedPtr& map) {
+        
+        // Initialize the tree with the robot's current position if it's empty
+        if (cloud_.pts.empty()) {
+            cloud_.pts.push_back({start_x, start_y, -1});
+            kd_tree_->addPoints(0, 0);
+        }
 
         std::random_device rd;
         std::mt19937 gen(rd());
         
-        double map_width_m = current_map_->info.width * current_map_->info.resolution;
-        double map_height_m = current_map_->info.height * current_map_->info.resolution;
-        double origin_x = current_map_->info.origin.position.x;
-        double origin_y = current_map_->info.origin.position.y;
+        double map_width_m = map->info.width * map->info.resolution;
+        double map_height_m = map->info.height * map->info.resolution;
+        double origin_x = map->info.origin.position.x;
+        double origin_y = map->info.origin.position.y;
 
         std::uniform_real_distribution<> x_dist(origin_x, origin_x + map_width_m);
         std::uniform_real_distribution<> y_dist(origin_y, origin_y + map_height_m);
 
         double step_size = 0.5;
-        int max_iterations = 4000;
-        bool found_frontier = false;
+        int max_iterations = 20000;
+        
+        std::vector<FrontierCandidate> candidates;
 
         for (int i = 0; i < max_iterations; ++i) {
             double rand_x = x_dist(gen);
             double rand_y = y_dist(gen);
 
-            int nearest_idx = getNearestNode(tree, rand_x, rand_y);
-            RRTNode nearest = tree[nearest_idx];
+            int nearest_idx = getNearestNode(rand_x, rand_y);
+            RRTNode nearest = cloud_.pts[nearest_idx];
 
             double theta = std::atan2(rand_y - nearest.y, rand_x - nearest.x);
             double new_x = nearest.x + step_size * std::cos(theta);
             double new_y = nearest.y + step_size * std::sin(theta);
 
-            int collision_state = checkLineCollision(nearest.x, nearest.y, new_x, new_y);
+            int collision_state = checkLineCollision(nearest.x, nearest.y, new_x, new_y, map);
             
-            if (collision_state == 0) {
-                tree.push_back({new_x, new_y, nearest_idx});
-            } else if (collision_state == -1) {
-                if (isFrontierSafe(new_x, new_y)) {
-                    goal.header.frame_id = "map";
-                    goal.header.stamp = this->now();
-                    goal.pose.position.x = new_x;
-                    goal.pose.position.y = new_y;
-                    goal.pose.orientation.w = 1.0;
-                    found_frontier = true;
-                    break;
+            if (collision_state == 0) { // Free Space
+                cloud_.pts.push_back({new_x, new_y, nearest_idx});
+                kd_tree_->addPoints(cloud_.pts.size() - 1, cloud_.pts.size() - 1);
+            } else if (collision_state == -1) { // Hit Unknown Space (Frontier)
+                if (isFrontierSafe(new_x, new_y, map)) {
+                    double dist = std::hypot(new_x - start_x, new_y - start_y);
+                    candidates.push_back({new_x, new_y, dist});
+                    
+                    // Stop searching once we have a solid batch of candidates
+                    if (candidates.size() >= 5) break; 
                 }
             }
         }
 
-        publishTreeMarker(tree);
-        return found_frontier;
-    }
+        publishTreeMarker();
 
-    void publishTreeMarker(const std::vector<RRTNode>& tree) {
-        visualization_msgs::msg::Marker tree_marker;
-        tree_marker.header.frame_id = "map";
-        tree_marker.header.stamp = this->now();
-        tree_marker.ns = "rrt_exploration";
-        tree_marker.id = 0;
-        tree_marker.type = visualization_msgs::msg::Marker::LINE_LIST;
-        tree_marker.action = visualization_msgs::msg::Marker::ADD;
-        tree_marker.pose.orientation.w = 1.0;
-        tree_marker.scale.x = 0.02; 
-        tree_marker.color.r = 1.0;
-        tree_marker.color.g = 0.0;
-        tree_marker.color.b = 0.0;
-        tree_marker.color.a = 0.8;
-
-        for (size_t i = 1; i < tree.size(); ++i) {
-            geometry_msgs::msg::Point p1, p2;
-            p1.x = tree[i].x;
-            p1.y = tree[i].y;
-            p1.z = 0.1;
+        // Sort candidates and pick the optimal (closest) one
+        if (!candidates.empty()) {
+            double best_dist = std::numeric_limits<double>::max();
+            FrontierCandidate best_cand;
+            for (const auto& c : candidates) {
+                if (c.distance < best_dist) {
+                    best_dist = c.distance;
+                    best_cand = c;
+                }
+            }
             
-            p2.x = tree[tree[i].parent_idx].x;
-            p2.y = tree[tree[i].parent_idx].y;
-            p2.z = 0.1;
-
-            tree_marker.points.push_back(p1);
-            tree_marker.points.push_back(p2);
+            goal.header.frame_id = "map";
+            goal.header.stamp = this->now();
+            goal.pose.position.x = best_cand.x;
+            goal.pose.position.y = best_cand.y;
+            goal.pose.orientation.w = 1.0;
+            return true;
         }
-        tree_pub_->publish(tree_marker);
+
+        return false;
     }
 
-    bool isFrontierSafe(double x, double y) {
+    int getNearestNode(double x, double y) {
+        double query_pt[2] = {x, y};
+        size_t ret_index;
+        double out_dist_sqr;
+        nanoflann::KNNResultSet<double> resultSet(1);
+        resultSet.init(&ret_index, &out_dist_sqr);
+        kd_tree_->findNeighbors(resultSet, &query_pt[0], nanoflann::SearchParams(10));
+        return ret_index;
+    }
+
+    // Uses Bresenham's line algorithm to perfectly step through grid cells
+    int checkLineCollision(double x0, double y0, double x1, double y1, const nav_msgs::msg::OccupancyGrid::SharedPtr& map) {
+        double res = map->info.resolution;
+        double origin_x = map->info.origin.position.x;
+        double origin_y = map->info.origin.position.y;
+
+        int x0_grid = std::floor((x0 - origin_x) / res);
+        int y0_grid = std::floor((y0 - origin_y) / res);
+        int x1_grid = std::floor((x1 - origin_x) / res);
+        int y1_grid = std::floor((y1 - origin_y) / res);
+
+        int dx = std::abs(x1_grid - x0_grid);
+        int dy = std::abs(y1_grid - y0_grid);
+        int sx = x0_grid < x1_grid ? 1 : -1;
+        int sy = y0_grid < y1_grid ? 1 : -1;
+        int err = dx - dy;
+
+        while (true) {
+            if (x0_grid < 0 || x0_grid >= (int)map->info.width || y0_grid < 0 || y0_grid >= (int)map->info.height) {
+                return 100;
+            }
+
+            int idx = y0_grid * map->info.width + x0_grid;
+            int val = map->data[idx];
+            
+            if (val == -1) return -1; // Frontier
+            if (val > 50) return 1;   // Obstacle
+
+            if (x0_grid == x1_grid && y0_grid == y1_grid) break;
+            
+            int e2 = 2 * err;
+            if (e2 > -dy) { err -= dy; x0_grid += sx; }
+            if (e2 < dx) { err += dx; y0_grid += sy; }
+        }
+        return 0; // Free space
+    }
+
+    bool isFrontierSafe(double x, double y, const nav_msgs::msg::OccupancyGrid::SharedPtr& map) {
         for (const auto& bad_pt : blacklist_) {
-            if (std::hypot(bad_pt.first - x, bad_pt.second - y) < 1.5) {
+            if (std::hypot(bad_pt.x - x, bad_pt.y - y) < 0.5) {
                 return false; 
             }
         }
 
-        // 0.62m physical constraint + 0.03m grid snap tolerance
         double safe_radius = 0.65; 
-        double res = current_map_->info.resolution;
+        double res = map->info.resolution;
         int cells = std::ceil(safe_radius / res);
+        double origin_x = map->info.origin.position.x;
+        double origin_y = map->info.origin.position.y;
 
         for (int dx = -cells; dx <= cells; ++dx) {
             for (int dy = -cells; dy <= cells; ++dy) {
                 if (dx * dx + dy * dy <= cells * cells) {
                     double cx = x + dx * res;
                     double cy = y + dy * res;
-                    int val = getMapValue(cx, cy);
+                    
+                    int grid_x = std::floor((cx - origin_x) / res);
+                    int grid_y = std::floor((cy - origin_y) / res);
+
+                    if (grid_x < 0 || grid_x >= (int)map->info.width || grid_y < 0 || grid_y >= (int)map->info.height) {
+                        return false; 
+                    }
+
+                    int index = grid_y * map->info.width + grid_x;
+                    int val = map->data[index];
                     
                     if (val > 50 && val <= 100) {
                         return false; 
@@ -193,57 +295,6 @@ private:
             }
         }
         return true;
-    }
-
-    int getNearestNode(const std::vector<RRTNode>& tree, double x, double y) {
-        int nearest_idx = 0;
-        double min_dist = std::numeric_limits<double>::max();
-
-        for (size_t i = 0; i < tree.size(); ++i) {
-            double dist = std::hypot(tree[i].x - x, tree[i].y - y);
-            if (dist < min_dist) {
-                min_dist = dist;
-                nearest_idx = i;
-            }
-        }
-        return nearest_idx;
-    }
-
-    int checkLineCollision(double x0, double y0, double x1, double y1) {
-        int steps = 10;
-        double dx = (x1 - x0) / steps;
-        double dy = (y1 - y0) / steps;
-
-        for (int i = 0; i <= steps; ++i) {
-            double cx = x0 + i * dx;
-            double cy = y0 + i * dy;
-            
-            int map_val = getMapValue(cx, cy);
-            if (map_val == -1) {
-                return -1; 
-            }
-            if (map_val > 50) {
-                return 1; 
-            }
-        }
-        return 0; 
-    }
-
-    int getMapValue(double x, double y) {
-        double origin_x = current_map_->info.origin.position.x;
-        double origin_y = current_map_->info.origin.position.y;
-        double res = current_map_->info.resolution;
-
-        int grid_x = std::floor((x - origin_x) / res);
-        int grid_y = std::floor((y - origin_y) / res);
-
-        if (grid_x < 0 || grid_x >= (int)current_map_->info.width ||
-            grid_y < 0 || grid_y >= (int)current_map_->info.height) {
-            return 100;
-        }
-
-        int index = grid_y * current_map_->info.width + grid_x;
-        return current_map_->data[index];
     }
 
     void sendNavGoal(const geometry_msgs::msg::PoseStamped& goal) {
@@ -265,7 +316,7 @@ private:
             [this](const rclcpp_action::ClientGoalHandle<nav2_msgs::action::NavigateToPose>::SharedPtr & goal_handle) {
                 if (!goal_handle) {
                     RCLCPP_WARN(this->get_logger(), "Nav2 instantly REJECTED the goal. Blacklisting.");
-                    blacklist_.push_back({current_goal_.pose.position.x, current_goal_.pose.position.y});
+                    blacklist_.push_back({current_goal_.pose.position.x, current_goal_.pose.position.y, this->now()});
                     is_exploring_ = false;
                 }
             };
@@ -273,17 +324,48 @@ private:
         send_goal_options.result_callback = 
             [this](const rclcpp_action::ClientGoalHandle<nav2_msgs::action::NavigateToPose>::WrappedResult & result) {
                 is_exploring_ = false;
-               
                 if (result.code != rclcpp_action::ResultCode::SUCCEEDED) {
                     RCLCPP_WARN(this->get_logger(), "Nav2 aborted. The area is inaccessible. Adding to blacklist.");
-                    blacklist_.push_back({current_goal_.pose.position.x, current_goal_.pose.position.y});
+                    blacklist_.push_back({current_goal_.pose.position.x, current_goal_.pose.position.y, this->now()});
                 }
             };
 
         nav_client_->async_send_goal(goal_msg, send_goal_options);
-        RCLCPP_INFO(this->get_logger(), "Heading to new frontier at x: %.2f, y: %.2f", goal.pose.position.x, goal.pose.position.y);
+        RCLCPP_INFO(this->get_logger(), "Heading to optimal frontier at x: %.2f, y: %.2f", goal.pose.position.x, goal.pose.position.y);
     }
 
+    void publishTreeMarker() {
+        visualization_msgs::msg::Marker tree_marker;
+        tree_marker.header.frame_id = "map";
+        tree_marker.header.stamp = this->now();
+        tree_marker.ns = "rrt_exploration";
+        tree_marker.id = 0;
+        tree_marker.type = visualization_msgs::msg::Marker::LINE_LIST;
+        tree_marker.action = visualization_msgs::msg::Marker::ADD;
+        tree_marker.pose.orientation.w = 1.0;
+        tree_marker.scale.x = 0.02; 
+        tree_marker.color.r = 1.0;
+        tree_marker.color.g = 0.0;
+        tree_marker.color.b = 0.0;
+        tree_marker.color.a = 0.8;
+
+        for (size_t i = 1; i < cloud_.pts.size(); ++i) {
+            geometry_msgs::msg::Point p1, p2;
+            p1.x = cloud_.pts[i].x;
+            p1.y = cloud_.pts[i].y;
+            p1.z = 0.1;
+            
+            p2.x = cloud_.pts[cloud_.pts[i].parent_idx].x;
+            p2.y = cloud_.pts[cloud_.pts[i].parent_idx].y;
+            p2.z = 0.1;
+
+            tree_marker.points.push_back(p1);
+            tree_marker.points.push_back(p2);
+        }
+        tree_pub_->publish(tree_marker);
+    }
+
+    // ROS 2 Comms
     rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr map_sub_;
     std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
     std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
@@ -291,12 +373,18 @@ private:
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr tree_pub_;
     rclcpp::TimerBase::SharedPtr timer_;
     
+    // State Data
     nav_msgs::msg::OccupancyGrid::SharedPtr current_map_;
+    std::mutex map_mutex_;
     bool is_exploring_;
     bool exploration_finished_;
     geometry_msgs::msg::PoseStamped current_goal_;
-    std::vector<std::pair<double, double>> blacklist_; 
+    std::vector<BlacklistPoint> blacklist_; 
     rclcpp::Time goal_start_time_;
+
+    // KD-Tree Data
+    PointCloud cloud_;
+    std::unique_ptr<KDTreeDynamic> kd_tree_;
 };
 
 int main(int argc, char **argv) {

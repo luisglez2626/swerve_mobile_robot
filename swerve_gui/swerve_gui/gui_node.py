@@ -226,10 +226,11 @@ class MainWindow(QMainWindow):
         
         self.waypoints = {
             "Select Destination...": None,
-            "Corner Level 4 South West": (-12.0, -12.0, 0.0),
-            "Corner Level 4 South East": (12.0, -12.0, 0.0),
-            "Corner Level 4 North West": (-12.0, 12.0, 0.0),
-            "Corner Level 4 North East": (12.0, 12.0, 0.0),
+            
+            "Corner Level 4 North East": (12.0, -12.0, 0.0),
+            "Corner Level 4 North West": (12.0, 12.0, 0.0),
+            "Corner Level 4 South East": (-12.0, -12.0, 0.0),
+            "Corner Level 4 South West": (-12.0, 12.0, 0.0),
             "Alley East": (0.0, -9.0, 0.0),
             "Alley North East": (9.0, -9.0, 0.0),
             "Corner Level 3 North West": (9.0, 9.0, 0.0),

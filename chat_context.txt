@@ -58,6 +58,7 @@ swerve_robot/
 ├── swerve_navigation/
 │   ├── config/
 │   │   ├── ekf.yaml
+│   │   ├── nav2_params copy.yaml
 │   │   ├── nav2_params.yaml
 │   │   └── slam_toolbox.yaml
 │   ├── include/
@@ -67,13 +68,9 @@ swerve_robot/
 │   │   └── slam.launch.py
 │   ├── map_RRT_generated/
 │   │   └── maze_map.yaml
+│   ├── map_RRT_generated1/
+│   │   └── maze_map.yaml
 │   ├── maps/
-│   │   └── maze_map.yaml
-│   ├── maps2/
-│   │   └── maze_map.yaml
-│   ├── maps_3m/
-│   │   └── maze_map.yaml
-│   ├── maps_3m_bueno/
 │   │   └── maze_map.yaml
 │   ├── src/
 │   ├── CMakeLists.txt
@@ -81,7 +78,6 @@ swerve_robot/
 ├── README.md
 ├── chat_context.txt
 ├── commands.txt
-├── currentPrompt.txt
 └── export_context.py
 ```
 
@@ -89,121 +85,109 @@ swerve_robot/
 
 ### File: README.md
 ```
-# Swerve Mobile Robot
+# 🤖 Swerve Agrobot: Autonomous Navigation & Exploration Stack
 
-A complete ROS 2 Humble software stack for a 4-wheel swerve drive mobile robot. This project features custom kinematics, autonomous frontier exploration, and a PyQt6 operator dashboard. The simulation runs in Gazebo Fortress.
+A comprehensive ROS 2 Humble stack for an 8-motor independent swerve drive robot. Engineered for high-precision holonomic navigation in constrained environments, featuring C++ kinematics, RRT-based exploration, and a PyQt6 operator dashboard.
+
+## 📦 Package Ecosystem (7 Packages)
+
+*   **`swerve_bringup`**: Orchestrates system-wide launches, hardware bridges, and unified parameter loading.
+*   **`swerve_control`**: C++ Kinematics core. Implements IK/FK with shortest-path optimization and cosine velocity scaling.
+*   **`swerve_description`**: URDF/Xacro definitions. Features a 0.42m cylindrical chassis to maximize Lidar visibility.
+*   **`swerve_exploration`**: Frontier detection via a custom C++ RRT implementation for fully autonomous mapping.
+*   **`swerve_gazebo`**: Manages the Ignition Fortress environment and dynamic world generation tools.
+*   **`swerve_gui`**: PyQt6 Operator Dashboard featuring a **Virtual Joystick** for real-time holonomic control.
+*   **`swerve_navigation`**: Optimized Nav2 stack, SLAM Toolbox, and EKF-based odometry fusion.
+
+## 🚀 Technical Highlights
+
+*   **Holonomic Precision**: Independent 4-module control for crab, snake, and zero-turn maneuvers. The local planner is explicitly tuned without alignment constraints so the robot can smoothly reverse out of dead ends.
+*   **Dual-Layer Costmap Inflation**: The global costmap uses a large 1.5m inflation radius to act as a highway planner, forcing center-lane routing. The local costmap uses a 1.0m radius to allow safe, tactical driving corrections.
+*   **High-Performance Autonomous RRT**: The exploration node maintains a persistent KD-Tree in memory for fast O(log N) lookups. It also uses Bresenham's line algorithm for resolution-agnostic collision checking.
+*   **Smart Blacklisting**: Frontiers that cause the Nav2 watchdog to trigger are blacklisted temporarily and expire after 60 seconds. This prevents permanent phantom blocking.
+*   **Precision EKF Fusion**: Eliminates kinematic drift by fusing wheel odometry with high-frequency IMU data.
+
+## 🏗️ World Generation from JSON
+
+Located in `swerve_gazebo/worlds/`, the `json_to_sdf.py` tool converts architectural JSON coordinates into native, high-performance SDF worlds for Gazebo Fortress.
+
+**Supported Parameters:**
+*   `--input`: Path to the input JSON file.
+*   `--output`: Name of the generated `.sdf` file.
+*   `--hall_width`: Distance between wall centers (m).
+*   `--wall_height`: Physical height of wall assets (m).
+*   `--wall_thickness`: Collision and visual thickness (m).
+
+```bash
+python3 json_to_sdf.py --input maze.json --output maze.sdf --hall_width 3.0 --wall_height 1.5
+```
 
 ## 🛠️ System Requirements
 
-This project is tested and designed for the following stack:
+*   **OS**: Ubuntu 22.04 LTS
+*   **ROS Version**: ROS 2 Humble
+*   **Simulator**: Gazebo Fortress (v6.16+)
+*   **GPU**: NVIDIA Dedicated GPU (Highly recommended for RViz/Gazebo stability)
 
-* **OS:** Ubuntu 22.04 LTS
-* **ROS 2 Version:** ROS 2 Humble Hawksbill
-* **Gazebo Version:** Gazebo Fortress
-* **Python Dependencies:** PyQt6
+## 🎮 Usage Instructions
 
----
-
-## 📦 Project Architecture
-
-The workspace is organized into modular ROS 2 packages for simulation, control, perception, and UI.
-
-### 1. `swerve_bringup`
-The launch package that boots the simulation and brings up the robot system.
-* **`launch/sim_bringup.launch.py`**: Starts the Gazebo-based simulation and spawns the swerve robot.
-
-### 2. `swerve_control`
-Handles the custom swerve drive kinematics and low-level motion control.
-* **C++ kinematics node**: Computes forward and inverse kinematics for 4 independently steered and driven wheels.
-* Shortest-path wheel steering and cosine-scaled velocity limits prevent unnecessary arcing during aggressive maneuvers.
-
-### 3. `swerve_navigation`
-Provides SLAM and navigation support for autonomous operation.
-* **`slam.launch.py`**: Launches SLAM nodes for mapping and localization.
-* **Navigation stack**: Tuned for holonomic movement with tight 20cm clearance margins.
-
-### 4. `swerve_exploration`
-A standalone autonomous exploration package.
-* **RRT frontier exploration node**: Reads the live occupancy grid, builds Rapidly exploring Random Trees, and sends goals to the Nav2 action server.
-* Includes obstacle inflation safety checks and an asynchronous watchdog to avoid unreachable local minima.
-
-### 5. `swerve_gui`
-A PyQt6 operator dashboard for manual teleoperation and diagnostics.
-* **GUI node**: Integrates ROS 2 Action Clients and TF2 listeners.
-* Features a virtual joystick, waypoint deployment, and live wheel and coordinate diagnostics.
-
-### 6. Dynamic world generation tooling
-Python utilities to convert JSON layout descriptions into scaled Gazebo SDF world files.
-
----
-
-## 🚀 Installation & Usage
-
-### 1. Build the workspace
-From the root of your ROS 2 workspace:
-
-```bash
-colcon build --symlink-install
-```
-
-### 2. Source the workspace
-
-```bash
-source install/setup.bash
-```
-
-### 3. Launch the simulation
-
-```bash
-ros2 launch swerve_bringup sim_bringup.launch.py
-```
-
----
-
-## 🎮 Usage Modes
-
-The system supports three operational modes depending on the mission requirement. Enable hardware rendering in your terminal before launching Gazebo.
-
+### 0. Graphics Initialization (CRITICAL)
+To prevent UI artifacts and Gazebo crashes on hybrid-graphics laptops, always export these variables:
 ```bash
 export __NV_PRIME_RENDER_OFFLOAD=1
 export __GLX_VENDOR_LIBRARY_NAME=nvidia
 ```
 
-### Mode 1: Autonomous Exploration
+### Mode 1: Autonomous Exploration (Mapping)
+Automatically map an unknown environment using RRT frontiers.
+1. **Simulation**: `ros2 launch swerve_bringup sim_bringup.launch.py`
+2. **SLAM**: `ros2 launch swerve_navigation slam.launch.py`
+3. **NavStack**: `ros2 launch nav2_bringup navigation_launch.py use_sim_time:=True params_file:=install/swerve_navigation/share/swerve_navigation/config/nav2_params.yaml`
+4. **Exploration**: `ros2 run swerve_exploration rrt_node`
+5. **Dashboard**: `ros2 run swerve_gui gui`
 
+**Saving the map:** Wait for the RRT node to print `Exploration physically complete`. If it leaves a tight corner unmapped, use the GUI Joystick to drive the robot into the corner(should not happen). Once satisfied, open a new terminal and save the map to a custom directory to avoid overwriting your default map:
 ```bash
-ros2 launch swerve_bringup sim_bringup.launch.py
-ros2 launch swerve_navigation slam.launch.py
-ros2 launch nav2_bringup navigation_launch.py use_sim_time:=True params_file:=install/swerve_navigation/share/swerve_navigation/config/nav2_params.yaml
-ros2 run swerve_gui gui
-ros2 run swerve_exploration rrt_node
+mkdir -p ~/ros2_ws/src/swerve_robot/swerve_navigation/map_RRT_generated
+ros2 run nav2_map_server map_saver_cli -f ~/ros2_ws/src/swerve_robot/swerve_navigation/map_RRT_generated/maze_map
+
 ```
 
-### Mode 2: Manual Mapping
 
-```bash
-ros2 launch swerve_bringup sim_bringup.launch.py
-ros2 launch swerve_navigation slam.launch.py
-ros2 run swerve_gui gui
-```
+### Mode 2: Manual Teleoperation (Mapping)
+Map a new environment entirely by hand without autonomous intervention.
+1. **Simulation**: `ros2 launch swerve_bringup sim_bringup.launch.py`
+2. **SLAM**: `ros2 launch swerve_navigation slam.launch.py`
+3. **Dashboard**: `ros2 run swerve_gui gui`
 
-### Mode 3: Pure Navigation
+**PROCEDURE:**
+Use the Virtual Joystick in the Operator Dashboard to drive the robot through the maze until the map is fully generated in RViz. Click the Save SLAM Map button in the GUI to automatically save the map to
+`swerve_navigation/maps/maze_map`.
 
-```bash
-ros2 launch swerve_bringup sim_bringup.launch.py
-ros2 launch swerve_navigation navigation.launch.py
-ros2 run swerve_gui gui
-```
+### Mode 3: Pure Navigation (Pre-built Map)
+Run navigation missions on a map you have already saved. SLAM is disabled.
+1. **Simulation**: `ros2 launch swerve_bringup sim_bringup.launch.py`
+2. **Navigation**: `ros2 launch swerve_navigation navigation.launch.py`
+3. **Dashboard**: `ros2 run swerve_gui gui`
 
----
+**PROCEDURE:**
+First, use the 2D Pose Estimate tool in RViz to tell AMCL where the robot is starting. Once localized, use the GUI's Deploy to Waypoint dropdown, click SEND HOME, or use the 2D Goal Pose tool in RViz to command the robot.
 
-## 🌟 Features
 
-* **Swerve Kinematics and Control:** Custom C++ node solves forward/inverse kinematics for 4-wheel independent steering.
-* **Autonomous RRT Exploration:** Frontier search node uses live SLAM grids and Nav2 goals to explore unknown space.
-* **Tight Space Navigation:** DWB planner tuning for holonomic movement with strict clearance and reduced odometry drift.
-* **Live Operator Dashboard:** PyQt6 UI for manual teleoperation, waypoint commands, and real-time diagnostics.
-* **Dynamic SDF World Generation:** Python tooling converts JSON building layouts into Gazebo-compatible SDF worlds.
+
+## 📈 Implementation Details
+
+### Swerve Optimization
+The `swerve_control` node implements:
+*   **Shortest Path Logic**: Prevents modules from rotating more than 90° by inverting wheel velocity when necessary.
+*   **Anti-Arcing**: Uses cosine scaling of velocity commands during steering transitions to ensure the robot maintains its trajectory heading.
+*   **Hysteresis**: Prevents "jitter" when the robot is nearly stationary by maintaining the last known steering angle for commands under 0.01 m/s.
+
+### Navigation Tuning
+The `nav2_params.yaml` is tuned for holonomic swerve dynamics:
+*   **Global Planner**: Uses `SmacPlanner2D` to find the safest routes.
+*   **Local Controller**: Uses `DWBLocalPlanner` with carefully balanced critics (`RotateToGoal`, `Oscillation`, `BaseObstacle`, `PathDist`, `GoalDist`).
+*   **Path Tracking Priority**: The `PathDist` critic is scaled much higher than `GoalDist`. This ensures the robot strictly follows the safe global path around corners instead of trying to cut through walls.
 ```
 
 ### File: chat_context.txt
@@ -324,58 +308,6 @@ Add -> LaserScan (topic: /scan)
 Add -> RobotModel
 Add -> TF
 Add -> Marker (topic: /rrt_tree)
-```
-
-### File: currentPrompt.txt
-```
-Act as a senior robotics software engineer assisting a user with a master's degree in robotics. The goal is to build a high-level portfolio project from scratch. Do not just agree with me; if a technical approach is flawed, explain why and provide the correct industry-standard solution. Keep your responses straightforward and avoid sounding arrogant. Do not use the words "democratize", "rigorous", or "capable engineer".
-
-### Behavioral Rules
-* **File Formatting:** Whenever you generate, modify, or suggest code for a file, you MUST include the filename and its exact path at the top of the code block. (e.g., `yaml:swerve_navigation/config/nav2_params.yaml` or `cpp:swerve_exploration/src/rrt_node.cpp`).
-* **Do Not Flatter/Agree Blindly:** Do not agree with me every time. Only agree if I am strictly correct. If I am wrong or making a mistake with ROS 2 concepts, explain exactly why and provide the correct solution.
-* **Keep it Concise:** Provide direct, highly technical answers.
-
-### Project Definition
-We are building a simulated 4-wheel (8-motor) swerve drive mobile robot (`swerve_agrobot`) that autonomously maps and navigates a custom environment.
-* **OS:** Ubuntu 22.04 LTS
-* **ROS Version:** ROS 2 Humble
-* **Simulator:** Gazebo Fortress
-* **Robot Dimensions:** Upgraded to a cylindrical chassis (radius: 0.42m, height: 0.2m) to prevent the Lidar from detecting swinging corners during rotation. It features a 1mm thin flat circular indicator on top to show the front without blocking the Lidar.
-* **Sensors:** 8x joint encoders, 1x IMU, 1x 2D Lidar (minimum range set to 0.45m).
-
-### The 20cm Navigation Constraint
-I need the robot to be able to navigate as close as exactly 20cm to the maze walls. (This is because, later in the project, a collaborative arm will be mounted on the base, and it must reach objects without over-extending and tipping the robot). To achieve this without trapping the robot in local minima, the `nav2_params.yaml` uses a `robot_radius` of 0.42 and an `inflation_radius` of 0.62 (0.42m + 0.20m clearance), combined with a high `cost_scaling_factor` of 5.0.
-
-### Execution Steps Status
-* **Step 1:** Write the Python script to convert the JSON wall coordinates into a Gazebo Fortress SDF world. (DONE)
-* **Step 2:** Build the URDF/Xacro for the swerve robot with all sensor plugins. (DONE - Chassis converted to 0.42m cylinder).
-* **Step 3:** Implement the ros2_control hardware interface and swerve kinematics. (DONE - Implemented IK/FK, shortest path with hysteresis, and cosine scaling anti-arcing).
-* **Step 4:** Set up the ros_gz bridges. (DONE)
-* **Step 5:** Build the PyQt6 GUI node for the virtual joystick and waypoint status tracking. (DONE)
-* **Step 6:** Configure Nav2 and SLAM for tight-space holonomic navigation. (IN PROGRESS - Testing anti-drift and 20cm tight navigation limits).
-* **Step 7:** Write the custom RRT exploration node from scratch. (PENDING)
-
-### Critical System Discoveries & Context
-Through previous debugging, we solved several critical quirks about this specific software stack that you must factor into all future code:
-1. **Hardware Rendering:** I use a hybrid graphics laptop (AMD/NVIDIA RTX 3050). To prevent Gazebo crashes and RViz GLSL shader bugs (black squares), I MUST run the nodes using `export __NV_PRIME_RENDER_OFFLOAD=1` and `export __GLX_VENDOR_LIBRARY_NAME=nvidia`.
-2. **TF Tree & EKF:** To prevent TF chatter, the kinematics node DOES NOT broadcast the `odom -> base_footprint` transform. The Extended Kalman Filter (`ekf_node`) handles this using absolute topic paths (`/odom` and `/imu/data`). The `ekf_node` must run concurrently with Nav2, and the Gazebo simulation must be running simultaneously to prevent TF "extrapolation into the past" errors.
-3. **Dynamic Drift:** The swerve wheels slip on long navigation goals. We fixed this by lowering acceleration/deceleration limits (`acc_lim_x: 0.5`, etc.) in the `DWBLocalPlanner` and `velocity_smoother`, and increasing `BaseObstacle.scale` to actively repel from walls.
-4. **Nav2 Plugin Syntax Quirks:** ROS 2 Humble requires mixed syntax. Planners and Behaviors use the forward slash (e.g., `nav2_navfn_planner/NavfnPlanner`), while Costmaps and Controllers still require double colons (e.g., `nav2_costmap_2d::ObstacleLayer`).
-5. **BT Navigator:** We removed the `plugin_lib_names` list from the `bt_navigator` parameters so it automatically loads the correct default behavior tree nodes for Humble.
-
-### Current Goals
-I have already generated a wider maze environment and mapped it myself. Do not include mapping tasks. We are focusing exclusively on:
-
-**Goal 1: Verify Tight Navigation & Drift Fixes**
-We need to test the Nav2 configuration using the "2D Goal Pose" tool in RViz. Verify that the lowered acceleration limits prevent the robot from drifting into walls on long paths, and confirm that the robot can successfully navigate exactly 20cm away from a wall without the `GridBased` planner failing or triggering recovery spins.
-
-**Goal 2: Implement Autonomous Exploration (RRT)**
-I have left a portion of the maze unmapped intentionally. I have a package named `swerve_exploration`. We need to write a C++ node from scratch that reads the SLAM map, detects "frontiers" (the borders between known free space and unknown space), and automatically sends waypoints to Nav2 to autonomously explore and finish mapping the maze without manual teleoperation.
-
-### Workspace Structure & Code
-I have attached a text file containing my entire workspace structure and the current code for all my packages. Please acknowledge this state and let's begin executing Goal 1.
-
-```
 ```
 
 ### File: export_context.py
@@ -642,6 +574,8 @@ if __name__ == "__main__":
 
 ### File: swerve_exploration/CMakeLists.txt
 ```cmake
+# File: ~/ros2_ws/src/swerve_robot/swerve_exploration/CMakeLists.txt
+
 cmake_minimum_required(VERSION 3.8)
 project(swerve_exploration)
 
@@ -658,6 +592,7 @@ find_package(nav2_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(visualization_msgs REQUIRED)
+find_package(nanoflann REQUIRED)
 
 add_executable(rrt_node src/rrt_exploration.cpp)
 ament_target_dependencies(rrt_node
@@ -669,6 +604,7 @@ ament_target_dependencies(rrt_node
   tf2
   tf2_ros
   visualization_msgs
+  nanoflann
 )
 
 install(TARGETS rrt_node
@@ -688,6 +624,7 @@ ament_package()
 ### File: swerve_exploration/package.xml
 ```xml
 <?xml version="1.0"?>
+<!-- File: ~/ros2_ws/src/swerve_robot/swerve_exploration/package.xml -->
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
   <name>swerve_exploration</name>
@@ -706,6 +643,7 @@ ament_package()
   <depend>tf2</depend>
   <depend>tf2_ros</depend>
   <depend>visualization_msgs</depend>
+  <depend>nanoflann</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>
@@ -733,14 +671,48 @@ ament_package()
 #include <cmath>
 #include <chrono>
 #include <utility>
+#include <mutex>
+#include <nanoflann.hpp>
 
 using namespace std::chrono_literals;
 
+// --- Data Structures for RRT and KD-Tree ---
 struct RRTNode {
     double x;
     double y;
     int parent_idx;
 };
+
+// Adapter required by nanoflann to read our RRTNode structure
+struct PointCloud {
+    std::vector<RRTNode> pts;
+    inline size_t kdtree_get_point_count() const { return pts.size(); }
+    inline double kdtree_get_pt(const size_t idx, const size_t dim) const {
+        if (dim == 0) return pts[idx].x;
+        else return pts[idx].y;
+    }
+    template <class BBOX>
+    bool kdtree_get_bbox(BBOX& /* bb */) const { return false; }
+};
+
+// Dynamic KD-Tree type definition
+typedef nanoflann::KDTreeSingleIndexDynamicAdaptor<
+    nanoflann::L2_Simple_Adaptor<double, PointCloud>,
+    PointCloud, 2 /* dimensionality */
+> KDTreeDynamic;
+
+struct BlacklistPoint {
+    double x;
+    double y;
+    rclcpp::Time timestamp;
+};
+
+struct FrontierCandidate {
+    double x;
+    double y;
+    double distance;
+};
+
 
 class RRTExploration : public rclcpp::Node {
 public:
@@ -757,27 +729,46 @@ public:
             
         tree_pub_ = this->create_publisher<visualization_msgs::msg::Marker>("rrt_tree", 10);
 
+        // Initialize KD-Tree
+        kd_tree_ = std::make_unique<KDTreeDynamic>(2, cloud_, nanoflann::KDTreeSingleIndexAdaptorParams(10));
+
         timer_ = this->create_wall_timer(
             2000ms, std::bind(&RRTExploration::explorationLoop, this));
             
-        RCLCPP_INFO(this->get_logger(), "RRT Exploration node started.");
+        RCLCPP_INFO(this->get_logger(), "RRT Exploration node started with dynamic KD-Tree enabled.");
     }
 
 private:
     void mapCallback(const nav_msgs::msg::OccupancyGrid::SharedPtr msg) {
+        std::lock_guard<std::mutex> lock(map_mutex_);
         current_map_ = msg;
     }
 
     void explorationLoop() {
-        if (!current_map_ || exploration_finished_) {
+        nav_msgs::msg::OccupancyGrid::SharedPtr active_map;
+        {
+            // Safely grab a reference to the latest map without blocking callbacks
+            std::lock_guard<std::mutex> lock(map_mutex_);
+            active_map = current_map_;
+        }
+
+        if (!active_map || exploration_finished_) {
             return;
         }
 
+        auto now_time = this->now();
+
+        // Expire old blacklist entries (60 second decay)
+        blacklist_.erase(std::remove_if(blacklist_.begin(), blacklist_.end(),
+            [&](const BlacklistPoint& pt) {
+                return (now_time - pt.timestamp).seconds() > 60.0;
+            }), blacklist_.end());
+
         if (is_exploring_) {
-            if ((this->now() - goal_start_time_).seconds() > 40.0) {
-                RCLCPP_WARN(this->get_logger(), "Watchdog triggered: Nav2 is stuck. Force canceling and blacklisting.");
+            if ((now_time - goal_start_time_).seconds() > 40.0) {
+                RCLCPP_WARN(this->get_logger(), "Watchdog triggered: Nav2 is stuck. Blacklisting and recalculating.");
                 nav_client_->async_cancel_all_goals();
-                blacklist_.push_back({current_goal_.pose.position.x, current_goal_.pose.position.y});
+                blacklist_.push_back({current_goal_.pose.position.x, current_goal_.pose.position.y, now_time});
                 is_exploring_ = false;
             }
             return;
@@ -795,116 +786,165 @@ private:
         double start_y = transform.transform.translation.y;
 
         geometry_msgs::msg::PoseStamped frontier_goal;
-        if (findFrontierRRT(start_x, start_y, frontier_goal)) {
+        if (findFrontierRRT(start_x, start_y, frontier_goal, active_map)) {
             sendNavGoal(frontier_goal);
         } else {
-            // Lock the node. Once no frontiers are found, hand control permanently to the operator.
             exploration_finished_ = true;
             timer_->cancel();
-            RCLCPP_INFO(this->get_logger(), "Exploration physically complete. Autonomous RRT timer deactivated. You may now safely send GUI waypoints.");
+            RCLCPP_INFO(this->get_logger(), "Exploration physically complete. Autonomous RRT timer deactivated.");
         }
     }
 
-    bool findFrontierRRT(double start_x, double start_y, geometry_msgs::msg::PoseStamped& goal) {
-        std::vector<RRTNode> tree;
-        tree.push_back({start_x, start_y, -1});
+    bool findFrontierRRT(double start_x, double start_y, geometry_msgs::msg::PoseStamped& goal, const nav_msgs::msg::OccupancyGrid::SharedPtr& map) {
+        
+        // Initialize the tree with the robot's current position if it's empty
+        if (cloud_.pts.empty()) {
+            cloud_.pts.push_back({start_x, start_y, -1});
+            kd_tree_->addPoints(0, 0);
+        }
 
         std::random_device rd;
         std::mt19937 gen(rd());
         
-        double map_width_m = current_map_->info.width * current_map_->info.resolution;
-        double map_height_m = current_map_->info.height * current_map_->info.resolution;
-        double origin_x = current_map_->info.origin.position.x;
-        double origin_y = current_map_->info.origin.position.y;
+        double map_width_m = map->info.width * map->info.resolution;
+        double map_height_m = map->info.height * map->info.resolution;
+        double origin_x = map->info.origin.position.x;
+        double origin_y = map->info.origin.position.y;
 
         std::uniform_real_distribution<> x_dist(origin_x, origin_x + map_width_m);
         std::uniform_real_distribution<> y_dist(origin_y, origin_y + map_height_m);
 
         double step_size = 0.5;
-        int max_iterations = 4000;
-        bool found_frontier = false;
+        int max_iterations = 20000;
+        
+        std::vector<FrontierCandidate> candidates;
 
         for (int i = 0; i < max_iterations; ++i) {
             double rand_x = x_dist(gen);
             double rand_y = y_dist(gen);
 
-            int nearest_idx = getNearestNode(tree, rand_x, rand_y);
-            RRTNode nearest = tree[nearest_idx];
+            int nearest_idx = getNearestNode(rand_x, rand_y);
+            RRTNode nearest = cloud_.pts[nearest_idx];
 
             double theta = std::atan2(rand_y - nearest.y, rand_x - nearest.x);
             double new_x = nearest.x + step_size * std::cos(theta);
             double new_y = nearest.y + step_size * std::sin(theta);
 
-            int collision_state = checkLineCollision(nearest.x, nearest.y, new_x, new_y);
+            int collision_state = checkLineCollision(nearest.x, nearest.y, new_x, new_y, map);
             
-            if (collision_state == 0) {
-                tree.push_back({new_x, new_y, nearest_idx});
-            } else if (collision_state == -1) {
-                if (isFrontierSafe(new_x, new_y)) {
-                    goal.header.frame_id = "map";
-                    goal.header.stamp = this->now();
-                    goal.pose.position.x = new_x;
-                    goal.pose.position.y = new_y;
-                    goal.pose.orientation.w = 1.0;
-                    found_frontier = true;
-                    break;
+            if (collision_state == 0) { // Free Space
+                cloud_.pts.push_back({new_x, new_y, nearest_idx});
+                kd_tree_->addPoints(cloud_.pts.size() - 1, cloud_.pts.size() - 1);
+            } else if (collision_state == -1) { // Hit Unknown Space (Frontier)
+                if (isFrontierSafe(new_x, new_y, map)) {
+                    double dist = std::hypot(new_x - start_x, new_y - start_y);
+                    candidates.push_back({new_x, new_y, dist});
+                    
+                    // Stop searching once we have a solid batch of candidates
+                    if (candidates.size() >= 5) break; 
                 }
             }
         }
 
-        publishTreeMarker(tree);
-        return found_frontier;
-    }
+        publishTreeMarker();
 
-    void publishTreeMarker(const std::vector<RRTNode>& tree) {
-        visualization_msgs::msg::Marker tree_marker;
-        tree_marker.header.frame_id = "map";
-        tree_marker.header.stamp = this->now();
-        tree_marker.ns = "rrt_exploration";
-        tree_marker.id = 0;
-        tree_marker.type = visualization_msgs::msg::Marker::LINE_LIST;
-        tree_marker.action = visualization_msgs::msg::Marker::ADD;
-        tree_marker.pose.orientation.w = 1.0;
-        tree_marker.scale.x = 0.02; 
-        tree_marker.color.r = 1.0;
-        tree_marker.color.g = 0.0;
-        tree_marker.color.b = 0.0;
-        tree_marker.color.a = 0.8;
-
-        for (size_t i = 1; i < tree.size(); ++i) {
-            geometry_msgs::msg::Point p1, p2;
-            p1.x = tree[i].x;
-            p1.y = tree[i].y;
-            p1.z = 0.1;
+        // Sort candidates and pick the optimal (closest) one
+        if (!candidates.empty()) {
+            double best_dist = std::numeric_limits<double>::max();
+            FrontierCandidate best_cand;
+            for (const auto& c : candidates) {
+                if (c.distance < best_dist) {
+                    best_dist = c.distance;
+                    best_cand = c;
+                }
+            }
             
-            p2.x = tree[tree[i].parent_idx].x;
-            p2.y = tree[tree[i].parent_idx].y;
-            p2.z = 0.1;
-
-            tree_marker.points.push_back(p1);
-            tree_marker.points.push_back(p2);
+            goal.header.frame_id = "map";
+            goal.header.stamp = this->now();
+            goal.pose.position.x = best_cand.x;
+            goal.pose.position.y = best_cand.y;
+            goal.pose.orientation.w = 1.0;
+            return true;
         }
-        tree_pub_->publish(tree_marker);
+
+        return false;
     }
 
-    bool isFrontierSafe(double x, double y) {
+    int getNearestNode(double x, double y) {
+        double query_pt[2] = {x, y};
+        size_t ret_index;
+        double out_dist_sqr;
+        nanoflann::KNNResultSet<double> resultSet(1);
+        resultSet.init(&ret_index, &out_dist_sqr);
+        kd_tree_->findNeighbors(resultSet, &query_pt[0], nanoflann::SearchParams(10));
+        return ret_index;
+    }
+
+    // Uses Bresenham's line algorithm to perfectly step through grid cells
+    int checkLineCollision(double x0, double y0, double x1, double y1, const nav_msgs::msg::OccupancyGrid::SharedPtr& map) {
+        double res = map->info.resolution;
+        double origin_x = map->info.origin.position.x;
+        double origin_y = map->info.origin.position.y;
+
+        int x0_grid = std::floor((x0 - origin_x) / res);
+        int y0_grid = std::floor((y0 - origin_y) / res);
+        int x1_grid = std::floor((x1 - origin_x) / res);
+        int y1_grid = std::floor((y1 - origin_y) / res);
+
+        int dx = std::abs(x1_grid - x0_grid);
+        int dy = std::abs(y1_grid - y0_grid);
+        int sx = x0_grid < x1_grid ? 1 : -1;
+        int sy = y0_grid < y1_grid ? 1 : -1;
+        int err = dx - dy;
+
+        while (true) {
+            if (x0_grid < 0 || x0_grid >= (int)map->info.width || y0_grid < 0 || y0_grid >= (int)map->info.height) {
+                return 100;
+            }
+
+            int idx = y0_grid * map->info.width + x0_grid;
+            int val = map->data[idx];
+            
+            if (val == -1) return -1; // Frontier
+            if (val > 50) return 1;   // Obstacle
+
+            if (x0_grid == x1_grid && y0_grid == y1_grid) break;
+            
+            int e2 = 2 * err;
+            if (e2 > -dy) { err -= dy; x0_grid += sx; }
+            if (e2 < dx) { err += dx; y0_grid += sy; }
+        }
+        return 0; // Free space
+    }
+
+    bool isFrontierSafe(double x, double y, const nav_msgs::msg::OccupancyGrid::SharedPtr& map) {
         for (const auto& bad_pt : blacklist_) {
-            if (std::hypot(bad_pt.first - x, bad_pt.second - y) < 1.5) {
+            if (std::hypot(bad_pt.x - x, bad_pt.y - y) < 0.5) {
                 return false; 
             }
         }
 
-        // 0.62m physical constraint + 0.03m grid snap tolerance
         double safe_radius = 0.65; 
-        double res = current_map_->info.resolution;
+        double res = map->info.resolution;
         int cells = std::ceil(safe_radius / res);
+        double origin_x = map->info.origin.position.x;
+        double origin_y = map->info.origin.position.y;
 
         for (int dx = -cells; dx <= cells; ++dx) {
             for (int dy = -cells; dy <= cells; ++dy) {
                 if (dx * dx + dy * dy <= cells * cells) {
                     double cx = x + dx * res;
                     double cy = y + dy * res;
-                    int val = getMapValue(cx, cy);
+                    
+                    int grid_x = std::floor((cx - origin_x) / res);
+                    int grid_y = std::floor((cy - origin_y) / res);
+
+                    if (grid_x < 0 || grid_x >= (int)map->info.width || grid_y < 0 || grid_y >= (int)map->info.height) {
+                        return false; 
+                    }
+
+                    int index = grid_y * map->info.width + grid_x;
+                    int val = map->data[index];
                     
                     if (val > 50 && val <= 100) {
                         return false; 
@@ -913,57 +953,6 @@ private:
             }
         }
         return true;
-    }
-
-    int getNearestNode(const std::vector<RRTNode>& tree, double x, double y) {
-        int nearest_idx = 0;
-        double min_dist = std::numeric_limits<double>::max();
-
-        for (size_t i = 0; i < tree.size(); ++i) {
-            double dist = std::hypot(tree[i].x - x, tree[i].y - y);
-            if (dist < min_dist) {
-                min_dist = dist;
-                nearest_idx = i;
-            }
-        }
-        return nearest_idx;
-    }
-
-    int checkLineCollision(double x0, double y0, double x1, double y1) {
-        int steps = 10;
-        double dx = (x1 - x0) / steps;
-        double dy = (y1 - y0) / steps;
-
-        for (int i = 0; i <= steps; ++i) {
-            double cx = x0 + i * dx;
-            double cy = y0 + i * dy;
-            
-            int map_val = getMapValue(cx, cy);
-            if (map_val == -1) {
-                return -1; 
-            }
-            if (map_val > 50) {
-                return 1; 
-            }
-        }
-        return 0; 
-    }
-
-    int getMapValue(double x, double y) {
-        double origin_x = current_map_->info.origin.position.x;
-        double origin_y = current_map_->info.origin.position.y;
-        double res = current_map_->info.resolution;
-
-        int grid_x = std::floor((x - origin_x) / res);
-        int grid_y = std::floor((y - origin_y) / res);
-
-        if (grid_x < 0 || grid_x >= (int)current_map_->info.width ||
-            grid_y < 0 || grid_y >= (int)current_map_->info.height) {
-            return 100;
-        }
-
-        int index = grid_y * current_map_->info.width + grid_x;
-        return current_map_->data[index];
     }
 
     void sendNavGoal(const geometry_msgs::msg::PoseStamped& goal) {
@@ -985,7 +974,7 @@ private:
             [this](const rclcpp_action::ClientGoalHandle<nav2_msgs::action::NavigateToPose>::SharedPtr & goal_handle) {
                 if (!goal_handle) {
                     RCLCPP_WARN(this->get_logger(), "Nav2 instantly REJECTED the goal. Blacklisting.");
-                    blacklist_.push_back({current_goal_.pose.position.x, current_goal_.pose.position.y});
+                    blacklist_.push_back({current_goal_.pose.position.x, current_goal_.pose.position.y, this->now()});
                     is_exploring_ = false;
                 }
             };
@@ -993,17 +982,48 @@ private:
         send_goal_options.result_callback = 
             [this](const rclcpp_action::ClientGoalHandle<nav2_msgs::action::NavigateToPose>::WrappedResult & result) {
                 is_exploring_ = false;
-               
                 if (result.code != rclcpp_action::ResultCode::SUCCEEDED) {
                     RCLCPP_WARN(this->get_logger(), "Nav2 aborted. The area is inaccessible. Adding to blacklist.");
-                    blacklist_.push_back({current_goal_.pose.position.x, current_goal_.pose.position.y});
+                    blacklist_.push_back({current_goal_.pose.position.x, current_goal_.pose.position.y, this->now()});
                 }
             };
 
         nav_client_->async_send_goal(goal_msg, send_goal_options);
-        RCLCPP_INFO(this->get_logger(), "Heading to new frontier at x: %.2f, y: %.2f", goal.pose.position.x, goal.pose.position.y);
+        RCLCPP_INFO(this->get_logger(), "Heading to optimal frontier at x: %.2f, y: %.2f", goal.pose.position.x, goal.pose.position.y);
     }
 
+    void publishTreeMarker() {
+        visualization_msgs::msg::Marker tree_marker;
+        tree_marker.header.frame_id = "map";
+        tree_marker.header.stamp = this->now();
+        tree_marker.ns = "rrt_exploration";
+        tree_marker.id = 0;
+        tree_marker.type = visualization_msgs::msg::Marker::LINE_LIST;
+        tree_marker.action = visualization_msgs::msg::Marker::ADD;
+        tree_marker.pose.orientation.w = 1.0;
+        tree_marker.scale.x = 0.02; 
+        tree_marker.color.r = 1.0;
+        tree_marker.color.g = 0.0;
+        tree_marker.color.b = 0.0;
+        tree_marker.color.a = 0.8;
+
+        for (size_t i = 1; i < cloud_.pts.size(); ++i) {
+            geometry_msgs::msg::Point p1, p2;
+            p1.x = cloud_.pts[i].x;
+            p1.y = cloud_.pts[i].y;
+            p1.z = 0.1;
+            
+            p2.x = cloud_.pts[cloud_.pts[i].parent_idx].x;
+            p2.y = cloud_.pts[cloud_.pts[i].parent_idx].y;
+            p2.z = 0.1;
+
+            tree_marker.points.push_back(p1);
+            tree_marker.points.push_back(p2);
+        }
+        tree_pub_->publish(tree_marker);
+    }
+
+    // ROS 2 Comms
     rclcpp::Subscription<nav_msgs::msg::OccupancyGrid>::SharedPtr map_sub_;
     std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
     std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
@@ -1011,12 +1031,18 @@ private:
     rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr tree_pub_;
     rclcpp::TimerBase::SharedPtr timer_;
     
+    // State Data
     nav_msgs::msg::OccupancyGrid::SharedPtr current_map_;
+    std::mutex map_mutex_;
     bool is_exploring_;
     bool exploration_finished_;
     geometry_msgs::msg::PoseStamped current_goal_;
-    std::vector<std::pair<double, double>> blacklist_; 
+    std::vector<BlacklistPoint> blacklist_; 
     rclcpp::Time goal_start_time_;
+
+    // KD-Tree Data
+    PointCloud cloud_;
+    std::unique_ptr<KDTreeDynamic> kd_tree_;
 };
 
 int main(int argc, char **argv) {
@@ -1776,10 +1802,11 @@ class MainWindow(QMainWindow):
         
         self.waypoints = {
             "Select Destination...": None,
-            "Corner Level 4 South West": (-12.0, -12.0, 0.0),
-            "Corner Level 4 South East": (12.0, -12.0, 0.0),
-            "Corner Level 4 North West": (-12.0, 12.0, 0.0),
-            "Corner Level 4 North East": (12.0, 12.0, 0.0),
+            
+            "Corner Level 4 North East": (12.0, -12.0, 0.0),
+            "Corner Level 4 North West": (12.0, 12.0, 0.0),
+            "Corner Level 4 South East": (-12.0, -12.0, 0.0),
+            "Corner Level 4 South West": (-12.0, 12.0, 0.0),
             "Alley East": (0.0, -9.0, 0.0),
             "Alley North East": (9.0, -9.0, 0.0),
             "Corner Level 3 North West": (9.0, 9.0, 0.0),
@@ -2442,45 +2469,23 @@ ament_package()
 </package>
 ```
 
-### File: swerve_navigation/maps_3m_bueno/maze_map.yaml
-```yaml
-image: maze_map.pgm
-mode: trinary
-resolution: 0.05
-origin: [-13.6, -13.5, 0]
-negate: 0
-occupied_thresh: 0.65
-free_thresh: 0.25
-```
-
 ### File: swerve_navigation/maps/maze_map.yaml
 ```yaml
 image: maze_map.pgm
 mode: trinary
 resolution: 0.05
-origin: [-13.6, -13.5, 0]
+origin: [-13.7, -13.6, 0]
 negate: 0
 occupied_thresh: 0.65
 free_thresh: 0.25
 ```
 
-### File: swerve_navigation/maps_3m/maze_map.yaml
+### File: swerve_navigation/map_RRT_generated1/maze_map.yaml
 ```yaml
 image: maze_map.pgm
 mode: trinary
 resolution: 0.05
-origin: [-13.3, -13.6, 0]
-negate: 0
-occupied_thresh: 0.65
-free_thresh: 0.25
-```
-
-### File: swerve_navigation/maps2/maze_map.yaml
-```yaml
-image: maze_map.pgm
-mode: trinary
-resolution: 0.05
-origin: [-9.09, -9.08, 0]
+origin: [-13.6, -13.6, 0]
 negate: 0
 occupied_thresh: 0.65
 free_thresh: 0.25
@@ -2615,7 +2620,7 @@ ekf_filter_node:
                   false, false, false]
 ```
 
-### File: swerve_navigation/config/nav2_params.yaml
+### File: swerve_navigation/config/nav2_params copy.yaml
 ```yaml
 # File: ~/ros2_ws/src/swerve_robot/swerve_navigation/config/nav2_params.yaml
 
@@ -2703,14 +2708,224 @@ controller_server:
       stateful: True
       critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "GoalAlign", "PathAlign", "PathDist", "GoalDist"]
       
-      BaseObstacle.scale: 0.1
-      PathAlign.scale: 32.0
+      # Balanced critics to prevent wall hugging
+      BaseObstacle.scale: 4.0
+      PathAlign.scale: 16.0
       PathAlign.forward_point_distance: 0.1
       GoalAlign.scale: 24.0
       GoalAlign.forward_point_distance: 0.1
-      PathDist.scale: 32.0
+      PathDist.scale: 16.0
       GoalDist.scale: 24.0
       RotateToGoal.scale: 32.0
+      RotateToGoal.slowing_factor: 5.0
+      RotateToGoal.lookahead_time: -1.0
+
+local_costmap:
+  local_costmap:
+    ros__parameters:
+      update_frequency: 5.0
+      publish_frequency: 2.0
+      global_frame: odom
+      robot_base_frame: base_footprint
+      use_sim_time: True
+      rolling_window: true
+      width: 6
+      height: 6
+      resolution: 0.05
+      robot_radius: 0.42 # Keep true physical radius
+      plugins: ["obstacle_layer", "inflation_layer"]
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: True
+        observation_sources: scan
+        scan:
+          topic: /scan
+          max_obstacle_height: 2.0
+          clearing: True
+          marking: True
+          data_type: "LaserScan"
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        cost_scaling_factor: 3.0
+        inflation_radius: 1.0
+
+global_costmap:
+  global_costmap:
+    ros__parameters:
+      update_frequency: 1.0
+      publish_frequency: 1.0
+      global_frame: map
+      robot_base_frame: base_footprint
+      use_sim_time: True
+      robot_radius: 0.42 # Keep true physical radius
+      resolution: 0.05
+      track_unknown_space: true
+      plugins: ["static_layer", "obstacle_layer", "inflation_layer"]
+      obstacle_layer:
+        plugin: "nav2_costmap_2d::ObstacleLayer"
+        enabled: True
+        observation_sources: scan
+        scan:
+          topic: /scan
+          max_obstacle_height: 2.0
+          clearing: True
+          marking: True
+          data_type: "LaserScan"
+      static_layer:
+        plugin: "nav2_costmap_2d::StaticLayer"
+        map_subscribe_transient_local: True
+      inflation_layer:
+        plugin: "nav2_costmap_2d::InflationLayer"
+        cost_scaling_factor: 3.0
+        inflation_radius: 1.0
+
+map_server:
+  ros__parameters:
+    use_sim_time: True
+    yaml_filename: "maze_map.yaml"
+
+planner_server:
+  ros__parameters:
+    expected_planner_frequency: 20.0
+    use_sim_time: True
+    planner_plugins: ["GridBased"]
+    GridBased:
+      plugin: "nav2_smac_planner/SmacPlanner2D"
+      tolerance: 0.5
+      allow_unknown: true
+      cost_travel_multiplier: 2.0
+
+behavior_server:
+  ros__parameters:
+    costmap_topic: local_costmap/costmap_raw
+    footprint_topic: local_costmap/published_footprint
+    cycle_frequency: 10.0
+    behavior_plugins: ["spin", "backup", "drive_on_heading", "wait"]
+    spin:
+      plugin: "nav2_behaviors/Spin"
+    backup:
+      plugin: "nav2_behaviors/BackUp"
+    drive_on_heading:
+      plugin: "nav2_behaviors/DriveOnHeading"
+    wait:
+      plugin: "nav2_behaviors/Wait"
+    global_frame: odom
+    robot_base_frame: base_footprint
+    transform_tolerance: 0.1
+    use_sim_time: true
+    simulate_ahead_time: 2.0
+    max_rotational_vel: 0.5
+    min_rotational_vel: 0.2
+    rotational_acc_lim: 1.5
+
+velocity_smoother:
+  ros__parameters:
+    use_sim_time: True
+    smoothing_frequency: 10.0
+    scale_velocities: False
+    feedback: "OPEN_LOOP"
+    max_velocity: [0.35, 0.35, 0.8]
+    min_velocity: [-0.35, -0.35, -0.8]
+    max_accel: [0.5, 0.5, 1.0]
+    max_decel: [-0.5, -0.5, -1.0]
+    odom_topic: "odom"
+    odom_duration: 0.1
+    deadband_velocity: [0.0, 0.0, 0.0]
+    velocity_timeout: 1.0
+```
+
+### File: swerve_navigation/config/nav2_params.yaml
+```yaml
+# File: ~/ros2_ws/src/swerve_robot/swerve_navigation/config/nav2_params.yaml
+
+amcl:
+  ros__parameters:
+    use_sim_time: True
+    alpha1: 0.2
+    alpha2: 0.2
+    alpha3: 0.2
+    alpha4: 0.2
+    alpha5: 0.2
+    base_frame_id: "base_footprint"
+    global_frame_id: "map"
+    odom_frame_id: "odom"
+    scan_topic: scan
+    max_particles: 2000
+    min_particles: 500
+    pf_err: 0.05
+    pf_z: 0.99
+    robot_model_type: "nav2_amcl::OmniMotionModel"
+    set_initial_pose: True
+    initial_pose:
+      x: 0.0
+      y: 0.0
+      z: 0.0
+      yaw: 0.0
+
+bt_navigator:
+  ros__parameters:
+    use_sim_time: True
+    global_frame: map
+    robot_base_frame: base_footprint
+    odom_topic: /odom
+    default_bt_xml_filename: "navigate_to_pose_w_replanning_and_recovery.xml"
+
+controller_server:
+  ros__parameters:
+    use_sim_time: True
+    controller_frequency: 10.0
+    min_x_velocity_threshold: 0.001
+    min_y_velocity_threshold: 0.001
+    min_theta_velocity_threshold: 0.001
+    progress_checker_plugin: "progress_checker"
+    goal_checker_plugins: ["general_goal_checker"]
+    controller_plugins: ["FollowPath"]
+
+    progress_checker:
+      plugin: "nav2_controller::SimpleProgressChecker"
+      required_movement_radius: 0.2
+      movement_time_allowance: 10.0
+    general_goal_checker:
+      stateful: True
+      plugin: "nav2_controller::SimpleGoalChecker"
+      xy_goal_tolerance: 0.25
+      yaw_goal_tolerance: 0.25
+    FollowPath:
+      plugin: "dwb_core::DWBLocalPlanner"
+      debug_trajectory_details: True
+      min_vel_x: -0.35
+      max_vel_x: 0.35
+      min_vel_y: -0.35
+      max_vel_y: 0.35
+      max_vel_theta: 0.8
+      min_speed_xy: 0.0
+      max_speed_xy: 0.35
+      min_speed_theta: 0.0
+      
+      acc_lim_x: 0.5
+      acc_lim_y: 0.5
+      acc_lim_theta: 1.0
+      decel_lim_x: -0.5
+      decel_lim_y: -0.5
+      decel_lim_theta: -1.0
+      
+      vx_samples: 15
+      vy_samples: 15
+      vtheta_samples: 5
+      sim_time: 2.5
+      linear_granularity: 0.05
+      angular_granularity: 0.025
+      transform_tolerance: 0.2
+      xy_goal_tolerance: 0.25
+      trans_stopped_velocity: 0.25
+      short_circuit_trajectory_evaluation: True
+      stateful: True
+      critics: ["RotateToGoal", "Oscillation", "BaseObstacle", "PathDist", "GoalDist"]
+      
+      BaseObstacle.scale: 1.5
+      PathDist.scale: 16.0
+      GoalDist.scale: 32.0
+      RotateToGoal.scale: 10.0
       RotateToGoal.slowing_factor: 5.0
       RotateToGoal.lookahead_time: -1.0
 
@@ -2740,8 +2955,8 @@ local_costmap:
           data_type: "LaserScan"
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 5.0
-        inflation_radius: 0.62
+        cost_scaling_factor: 3.0
+        inflation_radius: 1.0
 
 global_costmap:
   global_costmap:
@@ -2770,8 +2985,8 @@ global_costmap:
         map_subscribe_transient_local: True
       inflation_layer:
         plugin: "nav2_costmap_2d::InflationLayer"
-        cost_scaling_factor: 5.0
-        inflation_radius: 0.62
+        cost_scaling_factor: 1.5
+        inflation_radius: 1.5
 
 map_server:
   ros__parameters:
@@ -2784,10 +2999,10 @@ planner_server:
     use_sim_time: True
     planner_plugins: ["GridBased"]
     GridBased:
-      plugin: "nav2_navfn_planner/NavfnPlanner"
+      plugin: "nav2_smac_planner/SmacPlanner2D"
       tolerance: 0.5
-      use_astar: false
       allow_unknown: true
+      cost_travel_multiplier: 2.0
 
 behavior_server:
   ros__parameters:

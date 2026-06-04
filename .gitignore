@@ -20,3 +20,5 @@ OS generated files
 .Trashes
 ehthumbs.db
 Thumbs.db
+*.webm
+*.mp4

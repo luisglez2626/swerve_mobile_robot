@@ -14,11 +14,16 @@ A comprehensive ROS 2 Humble stack for an 8-motor independent swerve drive robot
 
 ## 🚀 Technical Highlights
 
-*   **Holonomic Precision**: Independent 4-module control for crab, snake, and zero-turn maneuvers.
-*   **20cm Wall Constraint**: Specifically tuned Nav2 costmaps (0.62m inflation) for close-proximity interactions.
-*   **Autonomous Frontier Mapping**: RRT exploration with a watchdog system to prevent local minima traps.
+*   **Holonomic Precision**: Independent 4-module control for crab, snake, and zero-turn maneuvers. The local planner is explicitly tuned without alignment constraints so the robot can smoothly reverse out of dead ends.
+*   **Dual-Layer Costmap Inflation**: The global costmap uses a large 1.5m inflation radius to act as a highway planner, forcing center-lane routing. The local costmap uses a 1.0m radius to allow safe, tactical driving corrections.
+*   **High-Performance Autonomous RRT**: The exploration node maintains a persistent KD-Tree in memory for fast O(log N) lookups. It also uses Bresenham's line algorithm for resolution-agnostic collision checking.
+*   **Smart Blacklisting**: Frontiers that cause the Nav2 watchdog to trigger are blacklisted temporarily and expire after 60 seconds. This prevents permanent phantom blocking.
 *   **Precision EKF Fusion**: Eliminates kinematic drift by fusing wheel odometry with high-frequency IMU data.
-*   **Operator UI**: Multi-threaded dashboard with live diagnostics and manual override capability.
+
+## 🎥 Demos
+
+*   **Autonomous RRT Exploration (4x Speed)**: [Watch on YouTube](https://youtu.be/V5pEX6XzKTk)
+*   **Precision Navigation & Waypoint Missions**: [Watch on YouTube](https://youtu.be/0iyGoaHDjWc)
 
 ## 🏗️ World Generation from JSON
 
@@ -59,7 +64,7 @@ Automatically map an unknown environment using RRT frontiers.
 4. **Exploration**: `ros2 run swerve_exploration rrt_node`
 5. **Dashboard**: `ros2 run swerve_gui gui`
 
-**Saving the map:** Wait for the RRT node to print `Exploration physically complete`. If it leaves a tight corner unmapped, use the GUI Joystick to drive the robot into the corner. Once satisfied, open a new terminal and save the map to a custom directory to avoid overwriting your default map:
+**Saving the map:** Wait for the RRT node to print `Exploration physically complete`. If it leaves a tight corner unmapped, use the GUI Joystick to drive the robot into the corner(should not happen). Once satisfied, open a new terminal and save the map to a custom directory to avoid overwriting your default map:
 ```bash
 mkdir -p ~/ros2_ws/src/swerve_robot/swerve_navigation/map_RRT_generated
 ros2 run nav2_map_server map_saver_cli -f ~/ros2_ws/src/swerve_robot/swerve_navigation/map_RRT_generated/maze_map
@@ -98,5 +103,6 @@ The `swerve_control` node implements:
 
 ### Navigation Tuning
 The `nav2_params.yaml` is tuned for holonomic swerve dynamics:
-*   **Planner**: `NavfnPlanner` with A* disabled for faster global path recalculation.
-*   **Controller**: `DWBLocalPlanner` with specialized critics (`PathAlign`, `GoalAlign`, `BaseObstacle`) to handle the circular chassis profile.
+*   **Global Planner**: Uses `SmacPlanner2D` to find the safest routes.
+*   **Local Controller**: Uses `DWBLocalPlanner` with carefully balanced critics (`RotateToGoal`, `Oscillation`, `BaseObstacle`, `PathDist`, `GoalDist`).
+*   **Path Tracking Priority**: The `PathDist` critic is scaled much higher than `GoalDist`. This ensures the robot strictly follows the safe global path around corners instead of trying to cut through walls.

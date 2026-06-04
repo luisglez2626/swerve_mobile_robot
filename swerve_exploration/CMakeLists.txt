@@ -1,3 +1,5 @@
+# File: ~/ros2_ws/src/swerve_robot/swerve_exploration/CMakeLists.txt
+
 cmake_minimum_required(VERSION 3.8)
 project(swerve_exploration)
 
@@ -14,6 +16,7 @@ find_package(nav2_msgs REQUIRED)
 find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(visualization_msgs REQUIRED)
+find_package(nanoflann REQUIRED)
 
 add_executable(rrt_node src/rrt_exploration.cpp)
 ament_target_dependencies(rrt_node
@@ -25,6 +28,7 @@ ament_target_dependencies(rrt_node
   tf2
   tf2_ros
   visualization_msgs
+  nanoflann
 )
 
 install(TARGETS rrt_node

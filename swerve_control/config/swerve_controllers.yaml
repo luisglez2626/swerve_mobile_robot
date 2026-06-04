@@ -1,19 +1,24 @@
-# File: ~/ros2_ws/src/swerve_robot/swerve_control/config/swerve_controllers.yaml
+# File: ~/ros2_ws/src/multi_swerve_robot/multi_swerve_control/config/swerve_controllers.yaml
 
+# 1. This global block satisfies the ign_ros2_control C++ plugin bug in ROS 2 Humble.
+# The plugin manually parses the YAML and expects a root 'controller_manager' key to find the update_rate.
 controller_manager:
   ros__parameters:
     update_rate: 50
 
+# 2. These fully qualified blocks satisfy the actual rclcpp nodes.
+# The nodes are spawned inside namespaces, so they strictly look for their exact paths.
+/robot1/controller_manager:
+  ros__parameters:
+    update_rate: 50
     joint_state_broadcaster:
       type: joint_state_broadcaster/JointStateBroadcaster
-
     steering_controller:
       type: position_controllers/JointGroupPositionController
-
     velocity_controller:
       type: velocity_controllers/JointGroupVelocityController
 
-steering_controller:
+/robot1/steering_controller:
   ros__parameters:
     joints:
       - fl_steering_joint
@@ -21,7 +26,33 @@ steering_controller:
       - rl_steering_joint
       - rr_steering_joint
 
-velocity_controller:
+/robot1/velocity_controller:
+  ros__parameters:
+    joints:
+      - fl_wheel_joint
+      - fr_wheel_joint
+      - rl_wheel_joint
+      - rr_wheel_joint
+
+/robot2/controller_manager:
+  ros__parameters:
+    update_rate: 50
+    joint_state_broadcaster:
+      type: joint_state_broadcaster/JointStateBroadcaster
+    steering_controller:
+      type: position_controllers/JointGroupPositionController
+    velocity_controller:
+      type: velocity_controllers/JointGroupVelocityController
+
+/robot2/steering_controller:
+  ros__parameters:
+    joints:
+      - fl_steering_joint
+      - fr_steering_joint
+      - rl_steering_joint
+      - rr_steering_joint
+
+/robot2/velocity_controller:
   ros__parameters:
     joints:
       - fl_wheel_joint

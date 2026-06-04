@@ -1,7 +1,8 @@
 <?xml version="1.0"?>
-<!-- File: ~/ros2_ws/src/swerve_robot/swerve_description/urdf/swerve_robot.urdf.xacro -->
+<!-- File: ~/ros2_ws/src/multi_swerve_robot/multi_swerve_description/urdf/swerve_robot.urdf.xacro -->
 <robot name="swerve_robot" xmlns:xacro="http://www.ros.org/wiki/xacro">
 
+    <xacro:arg name="robot_name" default=""/>
     <xacro:include filename="swerve_module.xacro" />
 
     <link name="base_footprint"/>
@@ -77,6 +78,7 @@
         <origin xyz="0 0 0" rpy="0 0 0"/>
     </joint>
 
+    <!-- Corrected Humble ign_ros2_control hardware system -->
     <ros2_control name="IgnitionSystem" type="system">
         <hardware>
             <plugin>ign_ros2_control/IgnitionSystem</plugin>
@@ -107,8 +109,8 @@
                     <resolution>0.015</resolution>
                 </range>
             </ray>
-            <topic>scan</topic>
-            <ignition_frame_id>lidar_link</ignition_frame_id>
+            <topic>$(arg robot_name)/scan</topic>
+            <ignition_frame_id>$(arg robot_name)/lidar_link</ignition_frame_id>
         </sensor>
     </gazebo>
 
@@ -116,14 +118,18 @@
         <sensor name="imu" type="imu">
             <always_on>true</always_on>
             <update_rate>50</update_rate>
-            <topic>imu/data</topic>
-            <ignition_frame_id>imu_link</ignition_frame_id>
+            <topic>$(arg robot_name)/imu/data</topic>
+            <ignition_frame_id>$(arg robot_name)/imu_link</ignition_frame_id>
         </sensor>
     </gazebo>
 
+    <!-- Corrected Humble ign_ros2_control plugin -->
     <gazebo>
         <plugin filename="ign_ros2_control-system" name="ign_ros2_control::IgnitionROS2ControlPlugin">
-            <parameters>$(find swerve_control)/config/swerve_controllers.yaml</parameters>
+            <ros>
+                <namespace>$(arg robot_name)</namespace>
+            </ros>
+            <parameters>$(find multi_swerve_control)/config/swerve_controllers.yaml</parameters>
         </plugin>
     </gazebo>
 
